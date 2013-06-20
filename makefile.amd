@@ -2,7 +2,7 @@ CLINC = $(AMDAPPSDKROOT)/include/
 CLLIB = $(AMDAPPSDKROOT)/lib/x86_64 -l OpenCL
 
 
-_DEPS = oclutil.h host.h
+_DEPS = oclutil.h
 _OBJS = oclutil.o reduce.o
 
 

@@ -15,7 +15,7 @@
 #endif
 
 #ifndef DATASZ
-#define DATASZ 23
+#define DATASZ 20
 #endif
 
 #ifndef LOCALSZ

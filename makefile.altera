@@ -3,7 +3,7 @@ CLLIB = -L/opt/altera/13.0/AOCL/linux64/lib -lalterahalmmd -lalterammdpcie -lpkg
 
 
 
-_DEPS = oclutil.h host.h
+_DEPS = oclutil.h
 _OBJS = oclutil.o reduce.o
 
 

@@ -3,7 +3,29 @@
 #include <string.h>
 #include <CL/cl.h>
 #include "oclutil.h"
-#include "host.h"
+
+#ifdef ALTERA
+#define KERNEL_EXT ".aocx"
+#else
+#define KERNEL_EXT ".cl"
+#endif
+
+#ifndef TESTSZ
+#define TESTSZ 10
+#endif
+
+#ifndef DATASZ
+#define DATASZ 23
+#endif
+
+#ifndef LOCALSZ
+#define LOCALSZ 128
+#endif
+
+#ifndef MARGIN
+#define MARGIN 0.01
+#endif
+
 
 void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel, int vect, int half);
 
@@ -13,24 +35,26 @@ int main(int argc, char **argv) {
 	printf("\n>>>>> reduce.c <<<<<\n\n");
 
 
-	// Get and display all available devices.
+	// Get all available devices.
 	cl_uint num_devices;
 	cl_device_id *devices;
 	oclCLDevices(&num_devices, &devices);
+
+	// Display all available devices.
 	printf("OpenCL devices:\n");
 	for(i = 0; i < num_devices; i++) {
 		printf("Device %d:\n", i);
 		oclPrintDeviceInfo(devices[i], "\t");
 	}
 
-	// Determine the selected device.
-	int dev_sel = (argc < 2) ? 0 : atoi(argv[1]);
+	// Determine the selected device from command-line input.
+	int dev_sel = (argc < 2) ? 0 : atoi(argv[1]);	// the second argument
 	printf("\nSelect device [%d].\n\n", dev_sel);
 	if(dev_sel < 0 || dev_sel >= num_devices)
 		return -1;
 	cl_device_id device = devices[dev_sel];
 
-	// Determine the kernel name and file.
+	// Determine the kernel name and file from command-line input.
 	char *kernel_name = (argc < 3) ? "reduce1" : argv[2];
 	char *kernel_file = (char *)malloc(50);
 	kernel_file[0] = '\0';
@@ -40,14 +64,12 @@ int main(int argc, char **argv) {
 	printf("Kernel Name: %s\n", kernel_name);
 	printf("Kernel File: %s\n", kernel_file);
 
-	// Determine the data vectorization.
+	// Determine the data vectorization from kernel filename
 	char *us_pos = strchr(kernel_name, '_');
 	int vect;
-	
 	if(us_pos == NULL) {
 		vect = 1;
 	} else {
-		
 		us_pos++;
 		vect = (*us_pos == '1') ? 16 : *us_pos - '0';
 	}

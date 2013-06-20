@@ -1,0 +1,33 @@
+CLINC = -I/opt/altera/13.0/AOCL/host/include
+CLLIB = -L/opt/altera/13.0/AOCL/linux64/lib -lalterahalmmd -lalterammdpcie -lpkg_editor -lalteracl -lrt -lstdc++ -L/opt/altera/13.0/AOCL/host/linux64/lib -lelf -Wl,-rpath=/opt/altera/13.0/AOCL/linux64/lib -Wl,-rpath=/opt/altera/13.0/AOCL/host/linux64/lib
+
+
+
+_DEPS = oclutil.h host.h
+_OBJS = oclutil.o reduce.o
+
+
+IDIR =.
+ODIR=altera
+DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
+OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
+CC=gcc
+
+
+all: $(ODIR)/reduce makefile.altera
+
+$(ODIR)/reduce: $(OBJS)
+	#gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+	gcc -o $@ $^ -DLINUX -DALTERA $(CLLIB)
+
+$(ODIR)/%.o: %.c $(DEPS)
+	mkdir -p $(ODIR)
+	$(CC) -c -o $@ $< $ -DLINUX -DALTERA $(CLINC) 
+
+.PHONY: clean
+
+clean:
+	rm -f $(ODIR)/*.o *~ $(INCDIR)/*~ 
+
+
+

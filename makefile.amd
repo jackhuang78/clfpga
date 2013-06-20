@@ -1,0 +1,31 @@
+CLINC = $(AMDAPPSDKROOT)/include/
+CLLIB = $(AMDAPPSDKROOT)/lib/x86_64 -l OpenCL
+
+
+_DEPS = oclutil.h host.h
+_OBJS = oclutil.o reduce.o
+
+
+IDIR =.
+ODIR=amd
+DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
+OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
+CC=gcc
+
+
+all: $(ODIR)/reduce makefile.amd
+
+$(ODIR)/reduce: $(OBJS)
+	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+
+$(ODIR)/%.o: %.c $(DEPS)
+	mkdir -p $(ODIR)
+	$(CC) -c -o $@ $< -I $(CLINC) $(MACRODEF)
+
+.PHONY: clean
+
+clean:
+	rm -f $(ODIR)/*.o *~ $(INCDIR)/*~ 
+
+
+

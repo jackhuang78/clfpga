@@ -2,8 +2,10 @@ CLINC = -I/opt/altera/13.0/AOCL/host/include
 CLLIB = -L/opt/altera/13.0/AOCL/linux64/lib -lalterahalmmd -lalterammdpcie -lpkg_editor -lalteracl -lrt -lstdc++ -L/opt/altera/13.0/AOCL/host/linux64/lib -lelf -Wl,-rpath=/opt/altera/13.0/AOCL/linux64/lib -Wl,-rpath=/opt/altera/13.0/AOCL/host/linux64/lib
 
 
-
+# put header files here
 _DEPS = oclutil.h
+
+# put object files here
 _OBJS = oclutil.o reduce.o
 
 
@@ -13,9 +15,9 @@ DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 CC=gcc
 
-
 all: $(ODIR)/reduce makefile.altera
 
+# put executable here
 $(ODIR)/reduce: $(OBJS)
 	#gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 	gcc -o $@ $^ -DLINUX -DALTERA $(CLLIB)

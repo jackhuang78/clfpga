@@ -1,8 +1,10 @@
 CLINC = $(AMDAPPSDKROOT)/include/
 CLLIB = $(AMDAPPSDKROOT)/lib/x86_64 -l OpenCL
 
-
+# put header files here
 _DEPS = oclutil.h
+
+# put object files here
 _OBJS = oclutil.o reduce.o
 
 
@@ -15,6 +17,7 @@ CC=gcc
 
 all: $(ODIR)/reduce makefile.amd
 
+# put executable here
 $(ODIR)/reduce: $(OBJS)
 	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 

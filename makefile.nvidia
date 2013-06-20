@@ -13,8 +13,9 @@ OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 CC=gcc
 
 
-all: $(ODIR)/reduce makefile.amd
+all: $(ODIR)/reduce makefile.nvidia
 
+# put executable here
 $(ODIR)/reduce: $(OBJS)
 	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 

@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 	cl_device_id device = devices[dev_sel];
 
 	// Determine the kernel name and file from command-line input.
-	char *kernel_name = (argc < 3) ? "reduce1" : argv[2];
+	char *kernel_name = (argc < 3) ? "reduce0" : argv[2];
 	char *kernel_file = (char *)malloc(50);
 	kernel_file[0] = '\0';
 	strcat(kernel_file, "reduce_kernels/");
@@ -65,15 +65,19 @@ int main(int argc, char **argv) {
 	printf("Kernel File: %s\n", kernel_file);
 
 	// Determine the data vectorization from kernel filename
-	char *us_pos = strchr(kernel_name, '_');
+	char *pos = strchr(kernel_name, '_');
 	int vect;
-	if(us_pos == NULL) {
+	if(pos == NULL) {
 		vect = 1;
 	} else {
-		us_pos++;
-		vect = (*us_pos == '1') ? 16 : *us_pos - '0';
+		pos++;
+		vect = (*pos == '1') ? 16 : *pos - '0';
 	}
 	printf("Data Vector: %d\n", vect);
+
+	// Determine if only half of the specified workitems are needed
+	int half = (kernel_name[6] >= '3') ? 1 : 0; 
+	printf("Half: %d\n", half);
 
 
 	// Set up OpenCL context, command queue, and kernel.
@@ -83,7 +87,7 @@ int main(int argc, char **argv) {
 	if(oclQuickSetup(device, kernel_file, kernel_name, &context, &queue, &kernel)) {
 		return -1;
 	}
-	reduce(context, queue, kernel, vect, 0);
+	reduce(context, queue, kernel, vect, half);
 
 	return 0;
 }
@@ -99,6 +103,13 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 	size_t lsz = LOCALSZ;
 	int nwg = ROUNDUP(nvec, lsz);
 	size_t gsz = lsz * nwg;
+
+	if(half) {
+		lsz /= 2;
+		gsz /= 2;
+	}
+
+	
 
 	printf("Number of elements: %d\n", n);
 	printf("Number of Workgroups: %d\n", nwg);
@@ -148,8 +159,10 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 		clWaitForEvents(1, &event);
 		float time = oclExecutionTime(&event);
 		
+		//printf("time: %f\n", time);
 	
 		// Read output data from output buffer.
+		//printf("out_data_sz: %u, out_data_mem: %u\n", out_data_sz, sizeof(out_data_mem));
 		CHECKRET(ret, clEnqueueReadBuffer(queue, out_data_mem, CL_TRUE, 0, out_data_sz, out_data, 0, NULL, NULL))
 
 		// Verify results

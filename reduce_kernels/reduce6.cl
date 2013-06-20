@@ -1,5 +1,5 @@
 #define T float
-#define blockSize 128
+#define blockSize 64
 #define nIsPow2 1
 
 /*

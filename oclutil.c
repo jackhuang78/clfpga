@@ -465,17 +465,13 @@ float rand_float(void) {
 		seeded = 1;
 	}
 	return (float)rand() / (float)RAND_MAX;
-
-/*
-	printf("rand_float\n");
-	float *data = (float *)malloc(n * sizeof(float));
-	printf("rand_float2\n");
-
-	int i;
-	for(i = 0; i < n; i++)
-		data[i] = (float)rand() / (float)RAND_MAX;
-	
-	return data;*/
+}
+double rand_double(void) {
+	if(!seeded) {
+		srand((unsigned)time(0));
+		seeded = 1;
+	}
+	return (double)rand() / (double)RAND_MAX;
 }
 
 double oclExecutionTime(cl_event *event) {

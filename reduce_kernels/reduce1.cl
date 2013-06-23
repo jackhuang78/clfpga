@@ -1,4 +1,4 @@
-#define T double
+#define T float
 #define blockSize 128
 #define nIsPow2 1
 

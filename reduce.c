@@ -15,7 +15,7 @@
 #endif
 
 #ifndef DATASZ
-#define DATASZ 25
+#define DATASZ 28
 #endif
 
 #ifndef LOCALSZ
@@ -23,7 +23,7 @@
 #endif
 
 #ifndef MARGIN
-#define MARGIN 0.01
+#define MARGIN 1.0
 #endif
 
 
@@ -117,10 +117,10 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 	printf("Global size: %u\n", (unsigned)gsz);
 
 	// Calcualte more numbers...
-	size_t in_data_sz = sizeof(double) * n;
-	size_t out_data_sz = sizeof(double) * nwg;
-	double *in_data = (double *)malloc(in_data_sz);
-	double *out_data = (double *)malloc(out_data_sz);
+	size_t in_data_sz = sizeof(float) * n;
+	size_t out_data_sz = sizeof(float) * nwg;
+	float *in_data = (float *)malloc(in_data_sz);
+	float *out_data = (float *)malloc(out_data_sz);
 
 	printf("Input Data Size: %u\n", (unsigned)in_data_sz);
 	printf("Output Data Size: %u\n", (unsigned)out_data_sz);
@@ -131,23 +131,25 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 	CHECK(out_data_mem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret))
 
 
-	double total_time = 0.0;
-	double total_error = 0.0;
-	double total_time_except_first = 0.0;
-	double total_error_except_first = 0.0;
+	float total_time = 0.0;
+	float total_error = 0.0;
+	float total_time_except_first = 0.0;
+	float total_error_except_first = 0.0;
 	printf("Run\tTime(sec)\tError(%%)\tStatus\tExpected\tActual\n");
 	for(i = 0; i < TESTSZ; i++) {
 		
 	
 		// Generate input data.
-		for(j = 0; j < n; j++)
-			in_data[j] = rand_double()*(i+1);
+		for(j = 0; j < n; j++) {
+			in_data[j] = rand_float();
+			in_data[j] = (j % 2) ? in_data[j] : -in_data[j];
+		}
 	
 		// Set kernel arguments.
 		CHECKRET(ret, clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&in_data_mem))
 		CHECKRET(ret, clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&out_data_mem))	
 		CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(int), (void *)&nvec))	
-		CHECKRET(ret, clSetKernelArg(kernel, 3, lsz * sizeof(double) * vect, NULL))		 
+		CHECKRET(ret, clSetKernelArg(kernel, 3, lsz * sizeof(float) * vect, NULL))		 
 
 		// Write input data to input buffer.
 		CHECKRET(ret, clEnqueueWriteBuffer(queue, in_data_mem, CL_TRUE, 0, in_data_sz, in_data, 0, NULL, NULL))
@@ -157,7 +159,7 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 		cl_event event;
 		CHECKRET(ret, clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gsz, &lsz, 0, NULL, &event))
 		clWaitForEvents(1, &event);
-		double time = oclExecutionTime(&event);
+		float time = oclExecutionTime(&event);
 		
 		//printf("time: %f\n", time);
 	
@@ -166,13 +168,13 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 		CHECKRET(ret, clEnqueueReadBuffer(queue, out_data_mem, CL_TRUE, 0, out_data_sz, out_data, 0, NULL, NULL))
 
 		// Verify results
-		double actual = 0.0;
-		double expected = 0.0;
+		float actual = 0.0;
+		float expected = 0.0;
 		for(j = 0; j < n; j++)
 			expected += in_data[j];
 		for(j = 0; j < nwg; j++) 
 			actual += out_data[j];
-		double error = (actual - expected) / expected * 100;
+		float error = (actual - expected) / expected * 100;
 		error = (error < 0) ? -error : error;
 		char *status = (error > MARGIN) ? "FAIL" : "pass";
 
@@ -185,8 +187,8 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 		total_error_except_first += (i == 0) ? 0.0 : error;
 	}
 
-	double avg_time = total_time / TESTSZ;
-	double avg_error = total_error / TESTSZ;
+	float avg_time = total_time / TESTSZ;
+	float avg_error = total_error / TESTSZ;
 	char *avg_status = (avg_error > MARGIN) ? "FAIL" : "pass";
 	printf("%s\t%f\t%f\t%s\n", "AVG(c)", avg_time, avg_error, avg_status);
 

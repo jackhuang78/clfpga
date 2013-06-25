@@ -11,7 +11,7 @@
 #endif
 
 #ifndef TESTSZ
-#define TESTSZ 10
+#define TESTSZ 5
 #endif
 
 #ifndef DATASZ
@@ -26,6 +26,7 @@
 #define MARGIN 1.0
 #endif
 
+#define AOCL_ALIGNMENT 64
 
 void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel, int vect, int half);
 
@@ -119,8 +120,16 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 	// Calcualte more numbers...
 	size_t in_data_sz = sizeof(float) * n;
 	size_t out_data_sz = sizeof(float) * nwg;
+
+#ifdef ALTERA
+	float *in_data, *out_data;
+	posix_memalign ((void **)&in_data, AOCL_ALIGNMENT, in_data_sz);	
+	posix_memalign ((void **)&out_data, AOCL_ALIGNMENT, out_data_sz);	
+#else
 	float *in_data = (float *)malloc(in_data_sz);
 	float *out_data = (float *)malloc(out_data_sz);
+#endif
+	
 
 	printf("Input Data Size: %u\n", (unsigned)in_data_sz);
 	printf("Output Data Size: %u\n", (unsigned)out_data_sz);

@@ -1,3 +1,4 @@
+#define T float4
 #define blockSize 128
 #define nIsPow2 1
 
@@ -5,7 +6,7 @@
    addressing results in many shared memory bank conflicts. */
 __kernel 
 __attribute((reqd_work_group_size(blockSize,1,1)))
-void reduce1_8(__global float8 *g_idata, __global float *g_odata, unsigned int n, __local float8* sdata)
+void reduce1_16(__global float16 *g_idata, __global float *g_odata, unsigned int n, __local float16* sdata)
 {
     // load shared mem
     unsigned int tid = get_local_id(0);
@@ -32,7 +33,9 @@ void reduce1_8(__global float8 *g_idata, __global float *g_odata, unsigned int n
     if (tid == 0) {
     	g_odata[get_group_id(0)] = 
             sdata[0].s0 + sdata[0].s1 + sdata[0].s2 + sdata[0].s3 +
-            sdata[0].s4 + sdata[0].s5 + sdata[0].s6 + sdata[0].s7;
+            sdata[0].s4 + sdata[0].s5 + sdata[0].s6 + sdata[0].s7 +
+            sdata[0].s8 + sdata[0].s9 + sdata[0].sA + sdata[0].sB +
+            sdata[0].sC + sdata[0].sD + sdata[0].sE + sdata[0].sF;
 
 	}
 }

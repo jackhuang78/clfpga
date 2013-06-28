@@ -57,27 +57,18 @@ int main(int argc, char **argv) {
 
 	// Determine the kernel name and file from command-line input.
 	char *kernel_name = (argc < 3) ? "reduce0" : argv[2];
-	char *kernel_file = (char *)malloc(50);
-	kernel_file[0] = '\0';
-	strcat(kernel_file, "reduce_kernels/");
-	strcat(kernel_file, (argc < 4) ? kernel_name : argv[3]);
-	strcat(kernel_file, KERNEL_EXT);
+#ifdef ALTERA
+	char *kernel_file = (argc < 4) ? "reduce0.aocx" : argv[3];
+#else
+	char *kernel_file = (argc < 4) ? "reduce0.cl" : argv[3];
+#endif
 	printf("Kernel Name: %s\n", kernel_name);
 	printf("Kernel File: %s\n", kernel_file);
 
 	// Determine the data vectorization from kernel filename
-	char *pos = strchr(kernel_name, '_');
-	int vect;
-	if(pos == NULL) {
-		vect = 1;
-	} else {
-		pos++;
-		vect = (*pos == '1') ? 16 : *pos - '0';
-	}
+	int vect = (argc < 5) ? 1 : atoi(argv[4]);
+	int half = (argc < 6) ? 0 : atoi(argv[5]);
 	printf("Data Vector: %d\n", vect);
-
-	// Determine if only half of the specified workitems are needed
-	int half = (kernel_name[6] >= '3') ? 1 : 0; 
 	printf("Half: %d\n", half);
 
 
@@ -113,6 +104,7 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 	
 
 	printf("Number of elements: %d\n", n);
+	printf("Number of vector elements: %d\n", nvec);
 	printf("Number of Workgroups: %d\n", nwg);
 	printf("Local size: %u\n", (unsigned)lsz);
 	printf("Global size: %u\n", (unsigned)gsz);
@@ -160,8 +152,12 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 		CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(int), (void *)&nvec))	
 		CHECKRET(ret, clSetKernelArg(kernel, 3, lsz * sizeof(float) * vect, NULL))		 
 
+		//printf("set args\n");
+
 		// Write input data to input buffer.
 		CHECKRET(ret, clEnqueueWriteBuffer(queue, in_data_mem, CL_TRUE, 0, in_data_sz, in_data, 0, NULL, NULL))
+
+		//printf("write input\n");
 
 		// Run and profile the kernel.
 		clFinish(queue);
@@ -170,11 +166,13 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 		clWaitForEvents(1, &event);
 		float time = oclExecutionTime(&event);
 		
-		//printf("time: %f\n", time);
+		//printf("launch kernel\n");
 	
 		// Read output data from output buffer.
 		//printf("out_data_sz: %u, out_data_mem: %u\n", out_data_sz, sizeof(out_data_mem));
 		CHECKRET(ret, clEnqueueReadBuffer(queue, out_data_mem, CL_TRUE, 0, out_data_sz, out_data, 0, NULL, NULL))
+
+		//printf("read output\n");
 
 		// Verify results
 		float actual = 0.0;

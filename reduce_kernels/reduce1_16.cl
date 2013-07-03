@@ -1,11 +1,7 @@
-#define T float4
-#define blockSize 128
-#define nIsPow2 1
-
 /* This version uses contiguous threads, but its interleaved 
    addressing results in many shared memory bank conflicts. */
 __kernel 
-__attribute((reqd_work_group_size(blockSize,1,1)))
+__attribute((reqd_work_group_size(128,1,1)))
 void reduce1_16(__global float16 *g_idata, __global float *g_odata, unsigned int n, __local float16* sdata)
 {
     // load shared mem
@@ -31,11 +27,9 @@ void reduce1_16(__global float16 *g_idata, __global float *g_odata, unsigned int
 
     // write result for this block to global mem
     if (tid == 0) {
-    	g_odata[get_group_id(0)] = 
-            sdata[0].s0 + sdata[0].s1 + sdata[0].s2 + sdata[0].s3 +
-            sdata[0].s4 + sdata[0].s5 + sdata[0].s6 + sdata[0].s7 +
-            sdata[0].s8 + sdata[0].s9 + sdata[0].sA + sdata[0].sB +
-            sdata[0].sC + sdata[0].sD + sdata[0].sE + sdata[0].sF;
-
+		sdata[0].s01234567 += sdata[0].s89abcdef;
+		sdata[0].s0123 += sdata[0].s4567;
+		sdata[0].s01 += sdata[0].s23;
+		g_odata[get_group_id(0)] = sdata[0].s0 + sdata[0].s1;
 	}
 }

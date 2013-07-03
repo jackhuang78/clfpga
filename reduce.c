@@ -15,7 +15,7 @@
 #endif
 
 #ifndef DATASZ
-#define DATASZ 28
+#define DATASZ 20
 #endif
 
 #ifndef LOCALSZ
@@ -143,7 +143,9 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 		// Generate input data.
 		for(j = 0; j < n; j++) {
 			in_data[j] = rand_float();
-			in_data[j] = (j % 2) ? in_data[j] : -in_data[j];
+			
+			//in_data[j] = 1.0/32768.0;
+			in_data[j] = (rand_float() > 0.5) ? in_data[j] : -in_data[j];
 		}
 	
 		// Set kernel arguments.

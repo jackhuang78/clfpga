@@ -3,10 +3,10 @@ CLLIB = -L/opt/altera/13.0/AOCL/linux64/lib -lalterahalmmd -lalterammdpcie -lpkg
 
 
 # put header files here
-_DEPS = oclutil.h
+_DEPS = makefile.altera oclutil.h sad.h
 
 # put object files here
-_OBJS = oclutil.o reduce.o
+_OBJS = oclutil.o reduce.o sad.o
 
 
 IDIR =.
@@ -15,16 +15,23 @@ DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 CC=gcc
 
-all: $(ODIR)/reduce makefile.altera
+all: makefile.altera $(ODIR)/reduce $(ODIR)/sad
 
 # put executable here
-$(ODIR)/reduce: $(OBJS)
+$(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
+	#gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+	gcc -o $@ $^ -DLINUX -DALTERA $(CLLIB)
+
+$(ODIR)/sad: $(ODIR)/oclutil.o $(ODIR)/sad.o
 	#gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 	gcc -o $@ $^ -DLINUX -DALTERA $(CLLIB)
 
 $(ODIR)/%.o: %.c $(DEPS)
 	mkdir -p $(ODIR)
 	$(CC) -c -o $@ $< $ -DLINUX -DALTERA $(CLINC) 
+
+
+
 
 .PHONY: clean
 

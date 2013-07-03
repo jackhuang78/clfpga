@@ -253,7 +253,7 @@ cl_int oclQuickSetup(cl_device_id device, char *kernel_file, char *kernel_name,
 		printf("Create from source\n");
 		source_str = oclReadSrc(kernel_file, &source_sz);
 		CHECK(program = clCreateProgramWithSource(*context, 1, (const char **)&source_str, (const size_t *)&source_sz, &ret))
-		clBuildProgram(program, 1, &device, NULL, NULL, NULL);
+		clBuildProgram(program, 1, &device, "-I ./", NULL, NULL);
 		clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, BUFFER_SIZE, buffer, NULL);
 		if(strlen(buffer) != 0)
 			printf("Build log:\n%s\n", buffer);
@@ -472,6 +472,13 @@ double rand_double(void) {
 		seeded = 1;
 	}
 	return (double)rand() / (double)RAND_MAX;
+}
+int rand_int(void) {
+	if(!seeded) {
+		srand((unsigned)time(0));
+		seeded = 1;
+	}
+	return rand();
 }
 
 double oclExecutionTime(cl_event *event) {

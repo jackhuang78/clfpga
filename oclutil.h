@@ -39,6 +39,7 @@ char *oclDeviceName(cl_device_id device);
 cl_device_type oclDeviceType(cl_device_id device);
 float rand_float(void);
 double rand_double(void);
+int rand_int(void);
 void oclDisplay(void);
 char *oclReadSrc(char *filename, size_t *src_size);
 cl_device_id oclGetDevice(int platform_idx, int device_idx);

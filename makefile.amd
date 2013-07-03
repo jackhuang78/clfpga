@@ -2,10 +2,10 @@ CLINC = $(AMDAPPSDKROOT)/include/
 CLLIB = $(AMDAPPSDKROOT)/lib/x86_64 -l OpenCL
 
 # put header files here
-_DEPS = oclutil.h makefile.amd
+_DEPS = oclutil.h makefile.amd sad.h
 
 # put object files here
-_OBJS = oclutil.o reduce.o matrixMul.o
+_OBJS = oclutil.o reduce.o matrixMul.o sad.o
 
 
 IDIR =.
@@ -15,13 +15,16 @@ OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 CC=gcc
 
 
-all: $(ODIR)/reduce $(ODIR)/matrixMul
+all: $(ODIR)/reduce $(ODIR)/matrixMul $(ODIR)/sad
 
 # put executable here
 $(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
 	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 
 $(ODIR)/matrixMul: $(ODIR)/oclutil.o $(ODIR)/matrixMul.o
+	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+
+$(ODIR)/sad: $(ODIR)/oclutil.o $(ODIR)/sad.o
 	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 
 

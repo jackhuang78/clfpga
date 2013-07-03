@@ -47,9 +47,9 @@ int main(int argc, char **argv) {
 	oclPrintDeviceInfo(device, "\t");
 	printf("Kernel Name:\t%s\n", kernel_name);
 	printf("Kernel File:\t%s\n", kernel_file);
-	printf("Image Size:\t%d x %d\t(%u Bytes)\n", IMAGE_S, IMAGE_S, SIZEOF(IMAGE_S, int));
-	printf("Filter Size:\t%d x %d\t(%u Bytes)\n", FILTER_S, FILTER_S, SIZEOF(FILTER_S, int));
-	printf("Output Size:\t%d x %d\t(%u Bytes)\n", OUT_S, OUT_S, SIZEOF(FILTER_S, int));
+	printf("Image Size:\t%d x %d\t(%lu Bytes)\n", IMAGE_S, IMAGE_S, SIZEOF(IMAGE_S, int));
+	printf("Filter Size:\t%d x %d\t(%lu Bytes)\n", FILTER_S, FILTER_S, SIZEOF(FILTER_S, int));
+	printf("Output Size:\t%d x %d\t(%lu Bytes)\n", OUT_S, OUT_S, SIZEOF(FILTER_S, int));
 
 	
 	if(OUT_S % WG_S != 0) {

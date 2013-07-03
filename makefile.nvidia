@@ -2,8 +2,11 @@ CLINC = $(CUDA)/include/
 CLLIB = $(CUDA)/lib/ -l OpenCL
 
 
-_DEPS = oclutil.h
-_OBJS = oclutil.o reduce.o
+# put header files here
+_DEPS = makefile.amd oclutil.h sad.h
+
+# put object files here
+_OBJS = oclutil.o reduce.o sad.o
 
 
 IDIR =.
@@ -13,11 +16,15 @@ OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 CC=gcc
 
 
-all: $(ODIR)/reduce makefile.nvidia
+all: $(ODIR)/reduce $(ODIR)/sad
 
 # put executable here
-$(ODIR)/reduce: $(OBJS)
+$(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
 	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+
+$(ODIR)/sad: $(ODIR)/oclutil.o $(ODIR)/sad.o
+	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+
 
 $(ODIR)/%.o: %.c $(DEPS)
 	mkdir -p $(ODIR)

@@ -181,7 +181,7 @@ void oclPrintDeviceInfo(cl_device_id device, char *prefix) {
 
 	printf("%sName: %s\n", prefix, name);
 	printf("%sType: %s\n", prefix, device_type_str(type));
-	printf("%sLocal Memory Size: %u\n", prefix, local_mem_sz);
+	printf("%sLocal Memory Size: %lu\n", prefix, local_mem_sz);
 	
 }
 

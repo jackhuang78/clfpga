@@ -1,6 +1,5 @@
 #include <sad.h>
 
-
 __kernel 
 __attribute((reqd_work_group_size(WG_S, WG_S, 1)))
 void sad1(__global int *image, __constant int *filter, __global int *out) {

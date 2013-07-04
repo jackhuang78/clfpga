@@ -1,5 +1,5 @@
-#define IMAGE_S		512
-#define FILTER_S	17	// must be odd
+#define IMAGE_S		4100
+#define FILTER_S	5	// must be odd
 #define OUT_S		(IMAGE_S - FILTER_S + 1)
 #define TEMP_S		(WG_S + FILTER_S - 1)
 

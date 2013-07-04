@@ -21,9 +21,12 @@ void print_mat(char *msg, int s, int *M);
 int main(int argc, char **argv) {
 	printf(">>>>> sad.c <<<<<\n");
 
-	int i, diff;
-	double time;
+	int i
+	
+	// input/output data
 	int *image, *filter, *out_host, *out_kernel;
+
+	// kernel info
 	char *kernel_name, *kernel_file;
 	cl_device_id device;
 	cl_context context;
@@ -31,62 +34,56 @@ int main(int argc, char **argv) {
 	cl_kernel kernel;
 	cl_mem image_mem, filter_mem, out_mem;
 
-	sad_init(argc, argv, &device, &kernel_name, &kernel_file, &image, &filter, &out_host, &out_kernel);
+	// profile / verification info
+	int diffs[ITER];
+	double times[ITER];
+	double cold_time, warm_time;
+	int cold_diff, warm_diff;
 
+	// Read arguments and allocate arrays.
+	sad_init(argc, argv, &device, &kernel_name, &kernel_file, &image, &filter, &out_host, &out_kernel);
 	printf("Device:\n");
 	oclPrintDeviceInfo(device, "\t");
 	printf("Kernel Name:\t%s\n", kernel_name);
 	printf("Kernel File:\t%s\n", kernel_file);
-
 	printf("Image Size:\t%d x %d\t(%lu Bytes)\n", IMAGE_S, IMAGE_S, SIZEOF(IMAGE_S, int));
 	printf("Filter Size:\t%d x %d\t(%lu Bytes)\n", FILTER_S, FILTER_S, SIZEOF(FILTER_S, int));
 	printf("Output Size:\t%d x %d\t(%lu Bytes)\n", OUT_S, OUT_S, SIZEOF(FILTER_S, int));
 	printf("Temporary Size:\t%d x %d\t(%lu Bytes)\n", TEMP_S, TEMP_S, SIZEOF(TEMP_S, int));
 
-
-	
+	// To simplify kernel, accept only output size that is a multiple of workgroup size
 	if(OUT_S % WG_S != 0) {
 		printf("Error: output size (%d) is not divisible by workgroup size (%d).\n", OUT_S, WG_S);
 		return -1;
 	} 	
-		
-
-
-	
-
 	
 	// Set up OpenCL context, command queue, and kernel.
 	if(oclQuickSetup(device, kernel_file, kernel_name, &context, &queue, &kernel)) {
 		printf("Setup failed.\n");
 		return -1;
 	}
-	sad_kernel_setup(context, &image_mem, &filter_mem, &out_mem);
 	
-
-	int diffs[ITER];
-	double times[ITER];
+	
+	// Initialize OpenCL memory buffer 
+	sad_kernel_setup(context, &image_mem, &filter_mem, &out_mem);
 	for(i = 0; i < ITER; i++) {
-		//printf("Iter %d\n", i);
 
-		// Create image and filter
+		// Create image and filter.
 		sad_setup(image, filter);
-		//print_mat("Image:", IMAGE_S, image);
-		//print_mat("Filter:", FILTER_S, filter);
 
-		// Run host as reference
+		// Run host as reference.
 		sad_host(image, filter, out_host);
-		//print_mat("Host Output:", OUT_S, out_host);
 
+		// Run kernel.
 		sad_kernel(context, queue, kernel, image_mem, filter_mem, out_mem, image, filter, out_kernel, &times[i]);
-		//print_mat("Kernel Output:", OUT_S, out_kernel);
 
+		// Verify results.
 		sad_verify(out_host, out_kernel, &diffs[i]);
 
 	}
 
+	// Display time and verification result.
 	printf("%15s%15s%15s\n", "Iter", "Time", "Diff");
-	double cold_time = 0.0, warm_time = 0.0;
-	int cold_diff = 0.0, warm_diff = 0.0;
 	for(i = 0; i < ITER; i++) {
 		printf("%15d%15f%15d\n", i, times[i], diffs[i]);
 		cold_time += times[i];

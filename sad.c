@@ -21,7 +21,7 @@ void print_mat(char *msg, int s, int *M);
 int main(int argc, char **argv) {
 	printf(">>>>> sad.c <<<<<\n");
 
-	int i
+	int i;
 	
 	// input/output data
 	int *image, *filter, *out_host, *out_kernel;

@@ -22,9 +22,14 @@ int main(int argc, char **argv) {
 	printf(">>>>> sad.c <<<<<\n");
 
 	int i;
+
 	
 	// input/output data
 	int *image, *filter, *out_host, *out_kernel;
+	int image_s = IMAGE_S;
+	int filter_s = FITLER_S;
+	int out_s = OUT_S;
+	int temp_s = TEMP_S;
 
 	// kernel info
 	char *kernel_name, *kernel_file;

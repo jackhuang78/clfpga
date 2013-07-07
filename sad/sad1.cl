@@ -3,7 +3,8 @@
 
 __kernel 
 __attribute((reqd_work_group_size(WG_S, WG_S, 1)))
-void sad1(__global int *image, __constant int *filter, __global int *out) {
+void sad1(__global int *image, __constant int *filter, __global int *out, 
+		  unsigned int image_s, unsigned int filter_s, unsigned int out_s) {
 
 	unsigned int global_r = get_group_id(1) * WG_S + get_local_id(1);
 	unsigned int global_c = get_group_id(0) * WG_S + get_local_id(0);

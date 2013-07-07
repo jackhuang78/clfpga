@@ -3,10 +3,10 @@
 #define OUT_S		(IMAGE_S - FILTER_S + 1)
 #define TEMP_S		(WG_S + FILTER_S - 1)
 
-#define IMAGE(r,c)	image[(r) * IMAGE_S + (c)]
-#define FILTER(r,c)	filter[(r) * FILTER_S + (c)]
-#define OUT(r,c)	out[(r) * OUT_S + (c)]
-#define TEMP(r,c)	temp[(r) * TEMP_S + (c)]
+#define IMAGE(r,c)	image[(r) * image_s + (c)]
+#define FILTER(r,c)	filter[(r) * filter_s + (c)]
+#define OUT(r,c)	out[(r) * out_s + (c)]
+#define TEMP(r,c)	temp[(r) * temp_s + (c)]
 
 #define MIN 0
 #define MAX 256

@@ -3,11 +3,11 @@
 
 __kernel 
 __attribute((reqd_work_group_size(WG_S, WG_S, 1)))
-void sad2(__global int *image, __constant int *filter, __global int *out) {
+void sad2(__global int *image, __constant int *filter, __global int *out, __local int *temp,
+		  unsigned int image_s, unsigned int filter_s, unsigned int out_s, unsigned int temp_s) {
 
 	int i, j;
 	int sad = 0;	
-	__local int temp[TEMP_S * TEMP_S];
 
 	unsigned int global_r = get_group_id(1) * WG_S + get_local_id(1);
 	unsigned int global_c = get_group_id(0) * WG_S + get_local_id(0);
@@ -19,16 +19,16 @@ void sad2(__global int *image, __constant int *filter, __global int *out) {
 		TEMP(local_r, local_c) = IMAGE(global_r, global_c);
 
 	} else if(local_r == bound && local_c == bound) {
-		for(i = 0; i < FILTER_S; i++) 
-			for(j = 0; j < FILTER_S; j++) 
+		for(i = 0; i < filter_s; i++) 
+			for(j = 0; j < filter_s; j++) 
 				TEMP(local_r + i, local_c + j) = IMAGE(global_r + i, global_c + j);
 		
 	} else if(local_r == bound){
-		for(i = 0; i < FILTER_S; i++) 
+		for(i = 0; i < filter_s; i++) 
 			TEMP(local_r + i, local_c) = IMAGE(global_r + i, global_c);
 		
 	} else {
-		for(j = 0; j < FILTER_S; j++)
+		for(j = 0; j < filter_s; j++)
 			TEMP(local_r, local_c + j) = IMAGE(global_r, global_c + j);
 		
 	}
@@ -37,8 +37,8 @@ void sad2(__global int *image, __constant int *filter, __global int *out) {
 
 
 			
-	for(i = 0; i < FILTER_S; i++)
-		for(j = 0; j < FILTER_S; j++)
+	for(i = 0; i < filter_s; i++)
+		for(j = 0; j < filter_s; j++)
 			sad += ABS(FILTER(i, j) - TEMP(local_r + i, local_c + j));
 
 	OUT(global_r, global_c) = sad;

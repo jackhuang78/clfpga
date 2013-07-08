@@ -10,7 +10,7 @@
 
 #define MIN 0
 #define MAX 256
-#define ITER 10
+#define ITER 2
 
 #define RAND_INIT() srand((unsigned)time(0))
 #define RAND_INT() (rand() % (MAX-MIN) - MIN)
@@ -19,10 +19,10 @@
 #define SIZEOF(s, t) (sizeof(t) * s * s)
 
 #define AOCL_ALIGNMENT 64
-#define WG_S		16	// must be less than sqrt(MAX_WORKGROUP_DIMENSION)
+#define WG_S 16	
 
-
-
+#define DEBUG 0
+#define DEBUG_PRINT(x) if(DEBUG) { x; }
 
 
 

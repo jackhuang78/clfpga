@@ -154,6 +154,7 @@ void oclCLDevices(cl_uint *num_devices_, cl_device_id **devices_) {
 }
 
 void oclDeviceInfo(cl_device_id device, char **name, cl_device_type *type,
+				   cl_uint *max_workitem_dim, size_t *max_workgroup_sz, size_t *max_workitem_sz,
 				   cl_ulong *local_mem_sz) {
 	cl_int ret;
 
@@ -167,21 +168,62 @@ void oclDeviceInfo(cl_device_id device, char **name, cl_device_type *type,
 		CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(type), type, NULL))		
 	}
 
+	if(max_workitem_dim != NULL) {
+		CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(max_workitem_dim), max_workitem_dim, NULL))
+	}
+
+	if(max_workitem_sz != NULL) {
+		CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t) * 3, max_workitem_sz, NULL))
+	}
+
+	if(max_workgroup_sz != NULL) {
+		CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), max_workgroup_sz, NULL))
+	}
+
 	if(local_mem_sz != NULL) {
 		CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(local_mem_sz), local_mem_sz, NULL))
 	}
 }
 
 void oclPrintDeviceInfo(cl_device_id device, char *prefix) {
-	char *name;
 	cl_device_type type;
-	cl_ulong local_mem_sz;
+	size_t sizes[3];
+	cl_uint uint;
+	cl_ulong ulong;
 
-	oclDeviceInfo(device, &name, &type, &local_mem_sz);
+
+
+	cl_int ret;
+	CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_NAME, BUFFER_SIZE, buffer, NULL))
+	printf("%sName: %s\n", prefix, buffer);
+
+	CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(type), &type, NULL))		
+	printf("%sType: %s\n", prefix, device_type_str(type));
+
+	CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), &uint, NULL))
+	printf("%sWork Item Dimensions: %u\n", prefix, uint);
+
+	CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t) * 3, sizes, NULL))
+	printf("%sWork Item Sizes: %u, %u, %u\n", prefix, (unsigned int)sizes[0], (unsigned int)sizes[1], (unsigned int)sizes[2]);
+
+	CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), sizes, NULL))
+	printf("%sWork Group Size: %u\n", prefix, (unsigned int)sizes[0]);
+
+	CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong), &ulong, NULL))
+	printf("%sGlobal Memory Size: %lu\n", prefix, ulong);
+
+	CHECKRET(ret, clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &ulong, NULL))
+	printf("%sLocal Memory Size: %lu\n", prefix, ulong);
+
+/*
+	oclDeviceInfo(device, &name, &type, &workitem_dim, workitem_szs, &workgroup_sz, &local_mem_sz);
 
 	printf("%sName: %s\n", prefix, name);
 	printf("%sType: %s\n", prefix, device_type_str(type));
-	printf("%sLocal Memory Size: %lu\n", prefix, local_mem_sz);
+	printf("%sWorkitem Dimension: %u\n", prefix, workitem_dim);
+	printf("%sWorkitem Sizes: %u, %u, %u\n", prefix, (unsigned)workitem_szs[0], (unsigned)workitem_szs[1], (unsigned)workitem_szs[2]);
+	printf("%sWorkgroup Size: %u\n", prefix, (unsigned)workgroup_sz);
+	printf("%sLocal Memory Size: %lu\n", prefix, local_mem_sz);*/
 	
 }
 
@@ -252,6 +294,7 @@ cl_int oclQuickSetup(cl_device_id device, char *kernel_file, char *kernel_name,
 	if(kernel_file[strlen(kernel_file) - 1] == 'l') {
 		printf("Create from source\n");
 		source_str = oclReadSrc(kernel_file, &source_sz);
+		setenv("CUDA_CACHE_DISABLE", "1", 1);
 		CHECK(program = clCreateProgramWithSource(*context, 1, (const char **)&source_str, (const size_t *)&source_sz, &ret))
 		clBuildProgram(program, 1, &device, "-I ./", NULL, NULL);
 		clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, BUFFER_SIZE, buffer, NULL);

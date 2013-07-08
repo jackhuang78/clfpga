@@ -26,6 +26,14 @@ int temp_s = TEMP_S;
 
 int main(int argc, char **argv) {
 	printf(">>>>> sad.c <<<<<\n");
+	setenv("CUDA_CACHE_DISABLE", "1", 1);
+
+	if(out_s % WG_S != 0) {
+		printf("Warning: output size (%d) is not divisible by workgroup size (%d).\n", out_s, WG_S);
+		printf("Use %d for image size instead.\n", image_s - (out_s % WG_S) + WG_S);
+		image_s = image_s - (out_s % WG_S) + WG_S;
+		out_s = (image_s - filter_s + 1);
+	}
 
 	int i;
 
@@ -58,12 +66,10 @@ int main(int argc, char **argv) {
 	printf("Filter Size:\t%d x %d\t(%lu Bytes)\n", filter_s, filter_s, SIZEOF(filter_s, int));
 	printf("Output Size:\t%d x %d\t(%lu Bytes)\n", out_s, out_s, SIZEOF(filter_s, int));
 	printf("Temporary Size:\t%d x %d\t(%lu Bytes)\n", temp_s, temp_s, SIZEOF(temp_s, int));
+	printf("Workgroup Size:\t%d x %d\n", WG_S, WG_S);
 
 	// To simplify kernel, accept only output size that is a multiple of workgroup size
-	if(out_s % WG_S != 0) {
-		printf("Error: output size (%d) is not divisible by workgroup size (%d).\n", out_s, WG_S);
-		return -1;
-	} 	
+	 	
 	
 	// Set up OpenCL context, command queue, and kernel.
 	if(oclQuickSetup(device, kernel_file, kernel_name, &context, &queue, &kernel)) {
@@ -185,7 +191,7 @@ void sad_kernel_setup(cl_context context, cl_mem *image_mem, cl_mem *filter_mem,
 	cl_int ret;
 
 	// Set up memory buffer
-	CHECK(*image_mem = clCreateBuffer(context, CL_MEM_READ_WRITE, SIZEOF(image_s, int), NULL, &ret))
+	CHECK(*image_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZEOF(image_s, int), NULL, &ret))
 	CHECK(*filter_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZEOF(filter_s, int), NULL, &ret))
 	CHECK(*out_mem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, SIZEOF(out_s, int), NULL, &ret))
 }

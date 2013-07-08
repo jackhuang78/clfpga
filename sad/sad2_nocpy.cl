@@ -13,7 +13,7 @@ void sad2(__global int *image, __constant int *filter, __global int *out, __loca
 	unsigned int global_c = get_group_id(0) * WG_S + get_local_id(0);
 	unsigned int local_r = get_local_id(1);
 	unsigned int local_c = get_local_id(0);
-	unsigned int bound = WG_S - 1;
+/*	unsigned int bound = WG_S - 1;
 
 	if(local_r < bound && local_c < bound) {
 		TEMP(local_r, local_c) = IMAGE(global_r, global_c);
@@ -34,7 +34,7 @@ void sad2(__global int *image, __constant int *filter, __global int *out, __loca
 	}
 
 	barrier(CLK_LOCAL_MEM_FENCE);
-
+*/
 
 			
 	for(i = 0; i < filter_s; i++)

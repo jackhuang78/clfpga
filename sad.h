@@ -1,5 +1,5 @@
-#define IMAGE_S		4100
-#define FILTER_S	5	// must be odd
+#define IMAGE_S		1024
+#define FILTER_S	15
 #define OUT_S		(IMAGE_S - FILTER_S + 1)
 #define TEMP_S		(WG_S + FILTER_S - 1)
 
@@ -10,7 +10,7 @@
 
 #define MIN 0
 #define MAX 256
-#define ITER 2
+#define ITER 5
 
 #define RAND_INIT() srand((unsigned)time(0))
 #define RAND_INT() (rand() % (MAX-MIN) - MIN)

@@ -294,7 +294,6 @@ cl_int oclQuickSetup(cl_device_id device, char *kernel_file, char *kernel_name,
 	if(kernel_file[strlen(kernel_file) - 1] == 'l') {
 		printf("Create from source\n");
 		source_str = oclReadSrc(kernel_file, &source_sz);
-		setenv("CUDA_CACHE_DISABLE", "1", 1);
 		CHECK(program = clCreateProgramWithSource(*context, 1, (const char **)&source_str, (const size_t *)&source_sz, &ret))
 		clBuildProgram(program, 1, &device, "-I ./", NULL, NULL);
 		clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, BUFFER_SIZE, buffer, NULL);

@@ -14,31 +14,9 @@ void sad3(__global T *image, __constant T *filter, __global T *out, __local T *t
 	unsigned int global_c = get_group_id(0) * WG_S + get_local_id(0);
 	unsigned int local_r = get_local_id(1);
 	unsigned int local_c = get_local_id(0);
-	unsigned int bound = WG_S - 1;
 	unsigned int extra = filter_s - 1;
 
-//	int fs = filter_s * filter_s;
-//	for(i = 0; i < fs; i++)
-//		filter[i] = filter_global[i];
 
-	/*if(local_r < bound && local_c < bound) {
-		TEMP(local_r, local_c) = IMAGE(global_r, global_c);
-
-	} else *//*if(local_r == bound && local_c == bound) {
-		for(i = 0; i < filter_s-8; i++) 
-			for(j = 0; j < filter_s-8; j++) 
-				TEMP(local_r + i, local_c + j) = IMAGE(global_r + i, global_c + j);
-		
-	} /*else if(local_r == bound){
-		for(i = 0; i < filter_s; i++) 
-			TEMP(local_r + i, local_c) = IMAGE(global_r + i, global_c);
-		
-	} else {
-		for(j = 0; j < filter_s; j++)
-			TEMP(local_r, local_c + j) = IMAGE(global_r, global_c + j);
-		
-	}*/
-	barrier(CLK_LOCAL_MEM_FENCE);
 
 
 	

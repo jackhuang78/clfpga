@@ -8,13 +8,15 @@
 #include "sad.h"
 
 
-void sad_init(int argc, char **argv, cl_device_id *device, char **kernel_name, char **kernel_file, int **image, int **filter, int **out_host, int **out_kernel);
-void sad_setup(int *image, int *filter);
-void sad_host(int *image, int *filter, int *out);
+
+
+void sad_init(int argc, char **argv, cl_device_id *device, char **kernel_name, char **kernel_file, T **image, T **filter, T **out_host, T **out_kernel);
+void sad_setup(T *image, T *filter);
+void sad_host(T *image, T *filter, T *out);
 void sad_kernel_setup(cl_context context, cl_mem *image_mem, cl_mem *filter_mem, cl_mem *out_mem);
-void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl_mem image_mem, cl_mem filter_mem, cl_mem out_mem, int *image, int *filter, int *out, double *times);
-void sad_verify(int *out_host, int *out_kernel, int *diff);
-void print_mat(char *msg, int s, int *M);
+void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl_mem image_mem, cl_mem filter_mem, cl_mem out_mem, T *image, T *filter, T *out, double *times);
+void sad_verify(T *out_host, T *out_kernel, T *diff);
+void print_mat(char *msg, int s, T *M);
 
 
 //==================================================================================================================
@@ -39,7 +41,7 @@ int main(int argc, char **argv) {
 
 	
 	// input/output data
-	int *image, *filter, *out_host, *out_kernel;
+	T *image, *filter, *out_host, *out_kernel;
 
 
 	// kernel info
@@ -51,10 +53,11 @@ int main(int argc, char **argv) {
 	cl_mem image_mem, filter_mem, out_mem;
 
 	// profile / verification info
-	int diffs[ITER];
+	T diffs[ITER];
+	T cold_diff, warm_diff;
 	double times[ITER];
 	double cold_time, warm_time;
-	int cold_diff, warm_diff;
+
 
 	// Read arguments and allocate arrays.
 	sad_init(argc, argv, &device, &kernel_name, &kernel_file, &image, &filter, &out_host, &out_kernel);
@@ -62,10 +65,10 @@ int main(int argc, char **argv) {
 	oclPrintDeviceInfo(device, "\t");
 	printf("Kernel Name:\t%s\n", kernel_name);
 	printf("Kernel File:\t%s\n", kernel_file);
-	printf("Image Size:\t%d x %d\t(%lu Bytes)\n", image_s, image_s, SIZEOF(image_s, int));
-	printf("Filter Size:\t%d x %d\t(%lu Bytes)\n", filter_s, filter_s, SIZEOF(filter_s, int));
-	printf("Output Size:\t%d x %d\t(%lu Bytes)\n", out_s, out_s, SIZEOF(filter_s, int));
-	printf("Temporary Size:\t%d x %d\t(%lu Bytes)\n", temp_s, temp_s, SIZEOF(temp_s, int));
+	printf("Image Size:\t%d x %d\t(%lu Bytes)\n", image_s, image_s, SIZEOF(image_s, T));
+	printf("Filter Size:\t%d x %d\t(%lu Bytes)\n", filter_s, filter_s, SIZEOF(filter_s, T));
+	printf("Output Size:\t%d x %d\t(%lu Bytes)\n", out_s, out_s, SIZEOF(filter_s, T));
+	printf("Temporary Size:\t%d x %d\t(%lu Bytes)\n", temp_s, temp_s, SIZEOF(temp_s, T));
 	printf("Workgroup Size:\t%d x %d\n", WG_S, WG_S);
 
 	// To simplify kernel, accept only output size that is a multiple of workgroup size
@@ -116,6 +119,7 @@ int main(int argc, char **argv) {
 	}
 	printf("%15s%15f%15d\n", "Avg(cold)", cold_time / ITER, cold_diff / ITER);
 	printf("%15s%15f%15d\n", "Avg(warm)", warm_time / (ITER - 1), warm_diff / (ITER - 1));	
+	printf("\nAvg throughput: %f\n", (ITER - 1) / warm_time);
 	
 	
 
@@ -123,7 +127,7 @@ int main(int argc, char **argv) {
 }
 
 void sad_init(int argc, char **argv, cl_device_id *device, char **kernel_name, char **kernel_file, 
-		int **image, int **filter, int **out_host, int **out_kernel) {
+		T **image, T **filter, T **out_host, T **out_kernel) {
 
 	// Get all available devices.
 	cl_uint num_devices;
@@ -148,34 +152,34 @@ void sad_init(int argc, char **argv, cl_device_id *device, char **kernel_name, c
 	// Allocate memory
 
 #ifdef ALTERA
-	posix_memalign ((void **)image, AOCL_ALIGNMENT, SIZEOF(image_s, int));
-	posix_memalign ((void **)filter, AOCL_ALIGNMENT, SIZEOF(filter_s, int));
-	posix_memalign ((void **)out_host, AOCL_ALIGNMENT, SIZEOF(out_s, int));
-	posix_memalign ((void **)out_kernel, AOCL_ALIGNMENT, SIZEOF(out_s, int));
+	posix_memalign ((void **)image, AOCL_ALIGNMENT, SIZEOF(image_s, T));
+	posix_memalign ((void **)filter, AOCL_ALIGNMENT, SIZEOF(filter_s, T));
+	posix_memalign ((void **)out_host, AOCL_ALIGNMENT, SIZEOF(out_s, T));
+	posix_memalign ((void **)out_kernel, AOCL_ALIGNMENT, SIZEOF(out_s, T));
 #else
-	*image = (int *)malloc(SIZEOF(image_s, int));
-	*filter = (int *)malloc(SIZEOF(filter_s, int));
-	*out_host = (int *)malloc(SIZEOF(out_s, int));
-	*out_kernel = (int *)malloc(SIZEOF(out_s, int));
+	*image = (T *)malloc(SIZEOF(image_s, T));
+	*filter = (T *)malloc(SIZEOF(filter_s, T));
+	*out_host = (T *)malloc(SIZEOF(out_s, T));
+	*out_kernel = (T *)malloc(SIZEOF(out_s, T));
 #endif
 
 	
 }
 
-void sad_setup(int *image, int *filter) {
+void sad_setup(T *image, T *filter) {
 	int i;
 
 	RAND_INIT();
 	for(i = 0; i < image_s * image_s; i++)
-		(image)[i] = RAND_INT();
+		image[i] = (T)RAND_INT();
 
 	for(i = 0; i < filter_s * filter_s; i++)
-		(filter)[i] = RAND_INT();
+		filter[i] = (T)RAND_INT();
 
 
 }
 
-void sad_host(int *image, int *filter, int *out) {
+void sad_host(T *image, T *filter, T *out) {
 	int i, j, ii, jj;
 
 	for(i = 0; i < out_s; i++)
@@ -191,13 +195,13 @@ void sad_kernel_setup(cl_context context, cl_mem *image_mem, cl_mem *filter_mem,
 	cl_int ret;
 
 	// Set up memory buffer
-	CHECK(*image_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZEOF(image_s, int), NULL, &ret))
-	CHECK(*filter_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZEOF(filter_s, int), NULL, &ret))
-	CHECK(*out_mem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, SIZEOF(out_s, int), NULL, &ret))
+	CHECK(*image_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZEOF(image_s, T), NULL, &ret))
+	CHECK(*filter_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZEOF(filter_s, T), NULL, &ret))
+	CHECK(*out_mem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, SIZEOF(out_s, T), NULL, &ret))
 }
 
 void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl_mem image_mem, cl_mem filter_mem, cl_mem out_mem,
-			  int *image, int *filter, int *out, double *time) {
+			  T *image, T *filter, T *out, double *time) {
 
 	int i;
 	cl_int ret;
@@ -215,7 +219,8 @@ void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl
 	CHECKRET(ret, clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&image_mem))
 	CHECKRET(ret, clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&filter_mem))	
 	CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&out_mem))		
-	CHECKRET(ret, clSetKernelArg(kernel, 3, SIZEOF(temp_s, int), NULL))	
+	CHECKRET(ret, clSetKernelArg(kernel, 3, SIZEOF(temp_s, T), NULL))	
+//	CHECKRET(ret, clSetKernelArg(kernel, 4, SIZEOF(filter_s, T), NULL))	
 	CHECKRET(ret, clSetKernelArg(kernel, 4, sizeof(int), (void *)&image_s))	
 	CHECKRET(ret, clSetKernelArg(kernel, 5, sizeof(int), (void *)&filter_s))	
 	CHECKRET(ret, clSetKernelArg(kernel, 6, sizeof(int), (void *)&out_s))	
@@ -223,8 +228,8 @@ void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl
 	//printf("Set Kernel arguments.\n");
 
 	// Write input data to input buffer.
-	CHECKRET(ret, clEnqueueWriteBuffer(queue, image_mem, CL_TRUE, 0, SIZEOF(image_s, int), image, 0, NULL, &event))
-	CHECKRET(ret, clEnqueueWriteBuffer(queue, filter_mem, CL_TRUE, 0, SIZEOF(filter_s, int), filter, 0, NULL, &event))
+	CHECKRET(ret, clEnqueueWriteBuffer(queue, image_mem, CL_TRUE, 0, SIZEOF(image_s, T), image, 0, NULL, &event))
+	CHECKRET(ret, clEnqueueWriteBuffer(queue, filter_mem, CL_TRUE, 0, SIZEOF(filter_s, T), filter, 0, NULL, &event))
 	//printf("Write input data to input buffer.\n");
 
 
@@ -237,7 +242,7 @@ void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl
 	//printf("launch kernel\n");
 
 	// Read output data from output buffer.
-	CHECKRET(ret, clEnqueueReadBuffer(queue, out_mem, CL_TRUE, 0, SIZEOF(out_s, int), out, 0, NULL, NULL))		
+	CHECKRET(ret, clEnqueueReadBuffer(queue, out_mem, CL_TRUE, 0, SIZEOF(out_s, T), out, 0, NULL, NULL))		
 	//printf("Read output data from output buffer.\n");
 	
 
@@ -250,7 +255,7 @@ void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl
 
 }
 
-void sad_verify(int *out_host, int *out_kernel, int *diff) {
+void sad_verify(T *out_host, T *out_kernel, T *diff) {
 	*diff = 0;
 
 	int i;
@@ -261,7 +266,7 @@ void sad_verify(int *out_host, int *out_kernel, int *diff) {
 }
 
 
-void print_mat(char *msg, int s, int *M) {
+void print_mat(char *msg, int s, T *M) {
 	int i, j;
 
 	printf("%s\n", msg);

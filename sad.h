@@ -1,5 +1,7 @@
+#define T int
+
 #define IMAGE_S		1024
-#define FILTER_S	15
+#define FILTER_S	10
 #define OUT_S		(IMAGE_S - FILTER_S + 1)
 #define TEMP_S		(WG_S + FILTER_S - 1)
 

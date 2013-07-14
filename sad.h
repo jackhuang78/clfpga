@@ -17,7 +17,8 @@
 #define IMAGE(r,c)	image[(r) * IMAGE_S + (c)]
 #define FILTER(r,c)	filter[(r) * FILTER_S + (c)]
 #define OUT(r,c)	out[(r) * OUT_S + (c)]
-#define TEMP(r,c)	temp[(r) * TEMP_S + (c)]
+#define IMAGE_TEMP(i, j) image_temp[(i) * TEMP_S + (j)]
+#define FILTER_TEMP(i, j) filter_temp[(i) * FILTER_S + (j)]
 
 #define MIN 0
 #define MAX 256

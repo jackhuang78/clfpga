@@ -70,9 +70,9 @@ int main(int argc, char **argv) {
 	
 	// Initialize OpenCL memory buffer 
 	sad_kernel_setup(context, &image_mem, &filter_mem, &out_mem);
-	printf("Begin executing kernels");
+	printf("Begin executing kernels\n");
 	for(i = 0; i < ITER; i++) {
-		printf(".");
+		printf(".\n");
 
 		// Create image and filter.
 		sad_setup(image, filter);

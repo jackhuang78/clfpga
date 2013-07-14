@@ -2,49 +2,49 @@
 
 
 __kernel 
-__attribute((reqd_work_group_size(WG_S, WG_S, 1)))
-void sad3(__global T *image, __constant T *filter, __global T *out, __local T *temp,
-		  const unsigned int image_s, const unsigned int filter_s, const unsigned int out_s, const unsigned int temp_s) {
+__attribute((reqd_work_group_size(LOCAL_S, LOCAL_S, 1)))
+void sad3(__global T *image, __constant T *filter, __global T *out) {
 
 	int i, j;
+	__local T image_temp[TEMP_S][TEMP_S];
+	__local T filter_temp[FILTER_S][FILTER_S];
 
-	unsigned int group_r = get_group_id(1) * WG_S;
-	unsigned int group_c = get_group_id(0) * WG_S;
-	unsigned int global_r = get_group_id(1) * WG_S + get_local_id(1);
-	unsigned int global_c = get_group_id(0) * WG_S + get_local_id(0);
+
+	unsigned int group_r = get_group_id(1) * LOCAL_S;
+	unsigned int group_c = get_group_id(0) * LOCAL_S;
+	unsigned int global_r = get_group_id(1) * LOCAL_S + get_local_id(1);
+	unsigned int global_c = get_group_id(0) * LOCAL_S + get_local_id(0);
 	unsigned int local_r = get_local_id(1);
 	unsigned int local_c = get_local_id(0);
-	unsigned int extra = filter_s - 1;
+	unsigned int extra_s = FILTER_S - 1;
 
 
-
-
-	
-	TEMP(local_r, local_c) = IMAGE(global_r, global_c);
-	if(local_r < extra) {
-		TEMP(WG_S + local_r, local_c) = IMAGE(WG_S + global_r, global_c); 
-		TEMP(local_c, WG_S + local_r) = IMAGE(group_r + local_c, group_c + WG_S + local_r);
+	// copy filters to __local memory
+	if(local_r < FILTER_S && local_c < FILTER_S)
+		filter_temp[local_r][local_c] = FILTER(local_r, local_c);
+			
+	// copy the portion of image to be used to __local memory
+	image_temp[local_r][local_c] = IMAGE(global_r, global_c);
+	if(local_r < extra_s) {
+		image_temp[LOCAL_S + local_r][local_c] = IMAGE(LOCAL_S + global_r, global_c); 
+		image_temp[local_c][LOCAL_S + local_r] = IMAGE(group_r + local_c, LOCAL_S + group_c + local_r);
 
 	} 
-
-
-	if((local_r + extra < temp_s) && (local_c + extra < temp_s)) {
-		TEMP(local_r + extra, local_c + extra) = IMAGE(global_r + extra, global_c + extra);
+	if((local_r < TEMP_S - extra_s) && (local_c < TEMP_S - extra_s)) {
+		image_temp[local_r + extra_s][local_c + extra_s] = IMAGE(global_r + extra_s, global_c + extra_s);
 	}
-
-
 	barrier(CLK_LOCAL_MEM_FENCE);
 
 
-	T sad = 0;	
-	for(i = 0; i < filter_s; i++)
-		for(j = 0; j < filter_s; j++) {
-			sad += ABS(FILTER(i, j) - TEMP(local_r + i, local_c + j));
-			//sad += TEMP(local_r + i, local_c + j);
-		}
+	// computer SAD at for each point
+	if(global_r < OUT_S && global_c < OUT_S) {
+		T sad = 0;	
+		for(i = 0; i < FILTER_S; i++)
+			for(j = 0; j < FILTER_S; j++) 
+				sad += ABS(filter_temp[i][j] - image_temp[local_r + i][local_c + j]);
 
-	OUT(global_r, global_c) = sad;
-
+		OUT(global_r, global_c) = sad;
+	}
 }
 
 

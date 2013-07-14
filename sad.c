@@ -21,26 +21,12 @@ void print_mat(char *msg, int s, T *M);
 
 //==================================================================================================================
 
-int image_s = IMAGE_S;
-int filter_s = FILTER_S;
-int out_s = OUT_S;
-int temp_s = TEMP_S;
-
 int main(int argc, char **argv) {
 	printf(">>>>> sad.c <<<<<\n");
 	setenv("CUDA_CACHE_DISABLE", "1", 1);
-
-	if(out_s % WG_S != 0) {
-		printf("Warning: output size (%d) is not divisible by workgroup size (%d).\n", out_s, WG_S);
-		printf("Use %d for image size instead.\n", image_s - (out_s % WG_S) + WG_S);
-		image_s = image_s - (out_s % WG_S) + WG_S;
-		out_s = (image_s - filter_s + 1);
-	}
+	RAND_INIT();
 
 	int i;
-
-	
-	// input/output data
 	T *image, *filter, *out_host, *out_kernel;
 
 
@@ -65,11 +51,12 @@ int main(int argc, char **argv) {
 	oclPrintDeviceInfo(device, "\t");
 	printf("Kernel Name:\t%s\n", kernel_name);
 	printf("Kernel File:\t%s\n", kernel_file);
-	printf("Image Size:\t%d x %d\t(%lu Bytes)\n", image_s, image_s, SIZEOF(image_s, T));
-	printf("Filter Size:\t%d x %d\t(%lu Bytes)\n", filter_s, filter_s, SIZEOF(filter_s, T));
-	printf("Output Size:\t%d x %d\t(%lu Bytes)\n", out_s, out_s, SIZEOF(filter_s, T));
-	printf("Temporary Size:\t%d x %d\t(%lu Bytes)\n", temp_s, temp_s, SIZEOF(temp_s, T));
-	printf("Workgroup Size:\t%d x %d\n", WG_S, WG_S);
+	printf("Image Size:\t%d x %d\t(%lu Bytes)\n", IMAGE_S, IMAGE_S, IMAGE_SZ);
+	printf("Filter Size:\t%d x %d\t(%lu Bytes)\n", FILTER_S, FILTER_S, FILTER_SZ);
+	printf("Output Size:\t%d x %d\t(%lu Bytes)\n", OUT_S, OUT_S, OUT_SZ);
+	printf("Temporary Size:\t%d x %d\t(%lu Bytes)\n", TEMP_S, TEMP_S, TEMP_SZ);
+	printf("Local Size:\t%d x %d\n", LOCAL_S, LOCAL_S);
+	printf("Global Size:\t%d x %d\n", GLOBAL_S, GLOBAL_S);
 
 	// To simplify kernel, accept only output size that is a multiple of workgroup size
 	 	
@@ -89,16 +76,16 @@ int main(int argc, char **argv) {
 
 		// Create image and filter.
 		sad_setup(image, filter);
-		DEBUG_PRINT(print_mat("Image:", image_s, image))
-		DEBUG_PRINT(print_mat("Filter:", filter_s, filter))
+		DEBUG_PRINT(print_mat("Image:", IMAGE_S, image))
+		DEBUG_PRINT(print_mat("Filter:", IMAGE_S, filter))
 
 		// Run host as reference.
 		sad_host(image, filter, out_host);
-		DEBUG_PRINT(print_mat("Host Output:", out_s, out_host))
+		DEBUG_PRINT(print_mat("Host Output:", OUT_S, out_host))
 
 		// Run kernel.
 		sad_kernel(context, queue, kernel, image_mem, filter_mem, out_mem, image, filter, out_kernel, &times[i]);
-		DEBUG_PRINT(print_mat("Kernel Output:", out_s, out_kernel))
+		DEBUG_PRINT(print_mat("Kernel Output:", OUT_S, out_kernel))
 
 		// Verify results.
 		sad_verify(out_host, out_kernel, &diffs[i]);
@@ -152,15 +139,15 @@ void sad_init(int argc, char **argv, cl_device_id *device, char **kernel_name, c
 	// Allocate memory
 
 #ifdef ALTERA
-	posix_memalign ((void **)image, AOCL_ALIGNMENT, SIZEOF(image_s, T));
-	posix_memalign ((void **)filter, AOCL_ALIGNMENT, SIZEOF(filter_s, T));
-	posix_memalign ((void **)out_host, AOCL_ALIGNMENT, SIZEOF(out_s, T));
-	posix_memalign ((void **)out_kernel, AOCL_ALIGNMENT, SIZEOF(out_s, T));
+	posix_memalign ((void **)image, AOCL_ALIGNMENT, IMAGE_SZ);
+	posix_memalign ((void **)filter, AOCL_ALIGNMENT, FILTER_SZ);
+	posix_memalign ((void **)out_host, AOCL_ALIGNMENT, OUT_SZ);
+	posix_memalign ((void **)out_kernel, AOCL_ALIGNMENT, OUT_SZ);
 #else
-	*image = (T *)malloc(SIZEOF(image_s, T));
-	*filter = (T *)malloc(SIZEOF(filter_s, T));
-	*out_host = (T *)malloc(SIZEOF(out_s, T));
-	*out_kernel = (T *)malloc(SIZEOF(out_s, T));
+	*image = (T *)malloc(IMAGE_SZ);
+	*filter = (T *)malloc(FILTER_SZ);
+	*out_host = (T *)malloc(OUT_SZ);
+	*out_kernel = (T *)malloc(OUT_SZ);
 #endif
 
 	
@@ -169,11 +156,11 @@ void sad_init(int argc, char **argv, cl_device_id *device, char **kernel_name, c
 void sad_setup(T *image, T *filter) {
 	int i;
 
-	RAND_INIT();
-	for(i = 0; i < image_s * image_s; i++)
+	
+	for(i = 0; i < IMAGE_S * IMAGE_S; i++)
 		image[i] = (T)RAND_INT();
 
-	for(i = 0; i < filter_s * filter_s; i++)
+	for(i = 0; i < FILTER_S * FILTER_S; i++)
 		filter[i] = (T)RAND_INT();
 
 
@@ -182,12 +169,12 @@ void sad_setup(T *image, T *filter) {
 void sad_host(T *image, T *filter, T *out) {
 	int i, j, ii, jj;
 
-	for(i = 0; i < out_s; i++)
-		for(j = 0; j < out_s; j++) {
-			out[IDX(i, j, out_s)] = 0;
-			for(ii = 0; ii < filter_s; ii++)
-				for(jj = 0; jj < filter_s; jj++)
-					out[IDX(i, j, out_s)] += ABS(image[IDX(i + ii, j + jj, image_s)] - filter[IDX(ii, jj, filter_s)]);
+	for(i = 0; i < OUT_S; i++)
+		for(j = 0; j < OUT_S; j++) {
+			OUT(i,j) = 0;
+			for(ii = 0; ii < FILTER_S; ii++)
+				for(jj = 0; jj < FILTER_S; jj++)
+					OUT(i,j) += ABS(IMAGE(i + ii, j + jj) - FILTER(ii, jj));
 		}
 }
 
@@ -195,9 +182,9 @@ void sad_kernel_setup(cl_context context, cl_mem *image_mem, cl_mem *filter_mem,
 	cl_int ret;
 
 	// Set up memory buffer
-	CHECK(*image_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZEOF(image_s, T), NULL, &ret))
-	CHECK(*filter_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZEOF(filter_s, T), NULL, &ret))
-	CHECK(*out_mem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, SIZEOF(out_s, T), NULL, &ret))
+	CHECK(*image_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, IMAGE_SZ, NULL, &ret))
+	CHECK(*filter_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, FILTER_SZ, NULL, &ret))
+	CHECK(*out_mem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, OUT_SZ, NULL, &ret))
 }
 
 void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl_mem image_mem, cl_mem filter_mem, cl_mem out_mem,
@@ -207,29 +194,20 @@ void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl
 	cl_int ret;
 	cl_event event;
 
-	size_t lsz[3] = {WG_S, WG_S, 1};
-	size_t gsz[3] = {out_s, out_s, 1};
+	size_t lsz[3] = {LOCAL_S, LOCAL_S, 1};
+	size_t gsz[3] = {GLOBAL_S, GLOBAL_S, 1};
 	
-	//printf("lsz: %u, %u, %u\n", (unsigned int)lsz[0], (unsigned int)lsz[1], (unsigned int)lsz[2]);
-	//printf("gsz: %u, %u, %u\n", (unsigned int)gsz[0], (unsigned int)gsz[1], (unsigned int)gsz[2]);
-
 	
 
 	// Set kernel arguments.
 	CHECKRET(ret, clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&image_mem))
 	CHECKRET(ret, clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&filter_mem))	
-	CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&out_mem))		
-	CHECKRET(ret, clSetKernelArg(kernel, 3, SIZEOF(temp_s, T), NULL))	
-//	CHECKRET(ret, clSetKernelArg(kernel, 4, SIZEOF(filter_s, T), NULL))	
-	CHECKRET(ret, clSetKernelArg(kernel, 4, sizeof(int), (void *)&image_s))	
-	CHECKRET(ret, clSetKernelArg(kernel, 5, sizeof(int), (void *)&filter_s))	
-	CHECKRET(ret, clSetKernelArg(kernel, 6, sizeof(int), (void *)&out_s))	
-	CHECKRET(ret, clSetKernelArg(kernel, 7, sizeof(int), (void *)&temp_s))	
+	CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&out_mem))	
 	//printf("Set Kernel arguments.\n");
 
 	// Write input data to input buffer.
-	CHECKRET(ret, clEnqueueWriteBuffer(queue, image_mem, CL_TRUE, 0, SIZEOF(image_s, T), image, 0, NULL, &event))
-	CHECKRET(ret, clEnqueueWriteBuffer(queue, filter_mem, CL_TRUE, 0, SIZEOF(filter_s, T), filter, 0, NULL, &event))
+	CHECKRET(ret, clEnqueueWriteBuffer(queue, image_mem, CL_TRUE, 0, IMAGE_SZ, image, 0, NULL, &event))
+	CHECKRET(ret, clEnqueueWriteBuffer(queue, filter_mem, CL_TRUE, 0, FILTER_SZ, filter, 0, NULL, &event))
 	//printf("Write input data to input buffer.\n");
 
 
@@ -242,16 +220,10 @@ void sad_kernel(cl_context context, cl_command_queue queue, cl_kernel kernel, cl
 	//printf("launch kernel\n");
 
 	// Read output data from output buffer.
-	CHECKRET(ret, clEnqueueReadBuffer(queue, out_mem, CL_TRUE, 0, SIZEOF(out_s, T), out, 0, NULL, NULL))		
+	CHECKRET(ret, clEnqueueReadBuffer(queue, out_mem, CL_TRUE, 0, OUT_SZ, out, 0, NULL, NULL))		
 	//printf("Read output data from output buffer.\n");
 	
 
-
-
-	//for(i = 0; i < out_s * out_s; i++)
-	//	out[i] = i;
-	
-	//*time = 1.0;
 
 }
 
@@ -259,7 +231,7 @@ void sad_verify(T *out_host, T *out_kernel, T *diff) {
 	*diff = 0;
 
 	int i;
-	for(i = 0; i < out_s * out_s; i++)
+	for(i = 0; i < OUT_S * OUT_S; i++)
 		*diff += out_host[i] != out_kernel[i];		
 
 
@@ -272,7 +244,7 @@ void print_mat(char *msg, int s, T *M) {
 	printf("%s\n", msg);
 	for(i = 0; i < s; i++) {
 		for(j = 0; j < s; j++)
-			printf("%5d", M[IDX(i,j,s)]);
+			printf("%5d", M[i * s + j]);
 		printf("\n");
 	}
 }

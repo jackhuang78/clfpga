@@ -12,8 +12,8 @@ void sad(__global T * image, __constant T * filter, __global T * out) {
 
 	unsigned int group_r = get_group_id(1) * LOCAL_S;
 	unsigned int group_c = get_group_id(0) * LOCAL_S;
-	unsigned int global_r = get_group_id(1) * LOCAL_S + get_local_id(1);
-	unsigned int global_c = get_group_id(0) * LOCAL_S + get_local_id(0);
+	unsigned int global_r = get_global_id(1);
+	unsigned int global_c = get_global_id(0);
 	unsigned int local_r = get_local_id(1);
 	unsigned int local_c = get_local_id(0);
 	unsigned int extra_s = FILTER_S - 1;

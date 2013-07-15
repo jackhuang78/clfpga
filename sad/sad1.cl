@@ -3,7 +3,7 @@
 
 __kernel 
 __attribute((reqd_work_group_size(LOCAL_S, LOCAL_S, 1)))
-void sad1(__global T *image, __constant T *filter, __global T *out) {
+void sad(__global T *image, __constant T *filter, __global T *out) {
 
 	int i, j;
 

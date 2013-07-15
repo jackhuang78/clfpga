@@ -1,12 +1,10 @@
-#define T unsigned short
+#define T int
 
 #define IMAGE_S		1024
-#define FILTER_S	4
-//#define FILTER_S	10
+#define FILTER_S	10
 #define OUT_S		(IMAGE_S - FILTER_S + 1)
 #define TEMP_S		(LOCAL_S + FILTER_S - 1)
-#define LOCAL_S		100
-//#define LOCAL_S		16
+#define LOCAL_S		16
 #define GLOBAL_S	((OUT_S + (LOCAL_S - 1)) / LOCAL_S * LOCAL_S)
 
 #define IMAGE_SZ	(IMAGE_S * IMAGE_S * sizeof(T))

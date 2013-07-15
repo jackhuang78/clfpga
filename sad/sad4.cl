@@ -4,7 +4,7 @@
 
 __kernel 
 __attribute((reqd_work_group_size(LOCAL_S, LOCAL_S, 1)))
-void sad4(__global T *image, __constant T *filter, __global T *out) {
+void sad(__global T *image, __constant T *filter, __global T *out) {
 
 	int i, j;
 	__local T image_temp[TEMP_S * TEMP_S];
@@ -40,13 +40,14 @@ void sad4(__global T *image, __constant T *filter, __global T *out) {
 	// computer SAD at for each point
 	if(global_r < OUT_S && global_c < OUT_S) {
 		T sad = 0;
+		T sad2 = 0;
 		for(i = 0; i < FILTER_S; i++) {
 			for(j = 0; j < FILTER_S; j++) {
 				sad += ABS(FILTER_TEMP(i, j) - IMAGE_TEMP(local_r + i, local_c + j));
 			}
 		}
 
-		OUT(global_r, global_c) = sad;
+		OUT(global_r, global_c) = sad + sad2;
 	}
 }
 

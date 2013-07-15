@@ -1,11 +1,9 @@
 #include <sad.h>
 
-#define IMAGE_TEMP(i, j) image_temp[(i) * TEMP_S + (j)]
-#define FILTER_TEMP(i, j) filter_temp[(i) * FILTER_S + (j)]
 
 __kernel 
 __attribute((reqd_work_group_size(LOCAL_S, LOCAL_S, 1)))
-void sad3(__global T *image, __constant T *filter, __global T *out) {
+void sad(__global T *image, __constant T *filter, __global T *out) {
 
 	int i, j;
 	__local T image_temp[TEMP_S * TEMP_S];

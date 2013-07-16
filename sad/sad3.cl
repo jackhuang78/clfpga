@@ -20,6 +20,7 @@ void sad(__global T * image, __constant T * filter, __global T * out) {
 
 
 	// copy filters to __local memory
+	/*
 	if(local_r < FILTER_S && local_c < FILTER_S)
 		filter_temp[local_r][local_c] = FILTER(local_r, local_c);
 			
@@ -34,7 +35,7 @@ void sad(__global T * image, __constant T * filter, __global T * out) {
 		image_temp[local_r + extra_s][local_c + extra_s] = IMAGE(global_r + extra_s, global_c + extra_s);
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
-
+*/
 
 	// computer SAD at for each point
 	if(global_r < OUT_S && global_c < OUT_S) {

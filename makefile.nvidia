@@ -16,7 +16,7 @@ OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 CC=gcc
 
 
-all: $(ODIR)/reduce $(ODIR)/sad
+all: $(ODIR)/reduce $(ODIR)/sad 
 
 # put executable here
 $(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
@@ -24,6 +24,10 @@ $(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
 
 $(ODIR)/sad: $(ODIR)/oclutil.o $(ODIR)/sad.o
 	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+
+$(ODIR)/sad_nithin: $(ODIR)/oclutil.o $(ODIR)/sad_nithin.o
+	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+
 
 
 $(ODIR)/%.o: %.c $(DEPS)

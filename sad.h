@@ -1,11 +1,23 @@
 #define T int
 
-#define IMAGE_S		1024
 #define FILTER_S	16
-#define OUT_S		(IMAGE_S - FILTER_S + 1)
+
+//#ifndef OUT_DIV_LOCAL
+//#define IMAGE_S		1024
+//#define OUT_S 		(IMAGE_S - FILTER_S + 1)
+//#else
+#define OUT_S		1024
+#define IMAGE_S		(OUT_S + FILTER_S - 1)
+//#endif
+
+
 #define TEMP_S		(LOCAL_S + FILTER_S - 1)
 #define LOCAL_S		32
 #define GLOBAL_S	((OUT_S + (LOCAL_S - 1)) / LOCAL_S * LOCAL_S)
+
+
+
+
 
 #define IMAGE_SZ	(IMAGE_S * IMAGE_S * sizeof(T))
 #define FILTER_SZ	(FILTER_S * FILTER_S * sizeof(T))
@@ -16,7 +28,7 @@
 
 #define IMAGE(r,c)	image[(r) * IMAGE_S + (c)]
 #define FILTER(r,c)	filter[(r) * FILTER_S + (c)]
-#define OUT(r,c)	out[(r) * IMAGE_S + (c)]
+#define OUT(r,c)	out[(r) * OUT_S + (c)]
 #define IMAGE_TEMP(i, j) image_temp[(i) * TEMP_S + (j)]
 #define FILTER_TEMP(i, j) filter_temp[(i) * FILTER_S + (j)]
 

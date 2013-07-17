@@ -4,9 +4,9 @@
 #include <math.h>
 
 
-#include <libc.h>
+//#include <libc.h>
 #include <stdbool.h>
-#include <mach/mach_time.h>
+//#include <mach/mach_time.h>
  
 #define OFFLINE 
 #define FILENAME "soad_8x8.cl"

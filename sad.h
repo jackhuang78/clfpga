@@ -1,6 +1,6 @@
 #define T int
 
-#define FILTER_S	16
+#define FILTER_S	8
 
 //#ifndef OUT_DIV_LOCAL
 //#define IMAGE_S		1024

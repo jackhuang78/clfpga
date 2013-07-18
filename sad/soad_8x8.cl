@@ -1,10 +1,10 @@
 
 
-#define WINDOW_BUFFER_HEIGHT (16)
-#define WINDOW_BUFFER_WIDTH (16)
+#define WINDOW_BUFFER_HEIGHT (32)
+#define WINDOW_BUFFER_WIDTH (32)
 #define TEMPLATE_WIDTH  (8)
 #define TEMPLATE_HEIGHT (8)
-
+#define T int
 
 /*
         SumOfDiff kernel with buffering of image and template into local memory
@@ -13,15 +13,15 @@
 __kernel
 // The image area this kernel computes within a workgroup
 __attribute__((reqd_work_group_size(WINDOW_BUFFER_HEIGHT, WINDOW_BUFFER_WIDTH, 1)))
-//__attribute__ ((num_simd_work_items(2)))
+__attribute__ ((num_simd_work_items(4)))
 //__attribute__ ((num_compute_units(2)))
 //__attribute__ ((max_share_resources(4)))
 void soad(
-        __global unsigned short* image,
-        __global unsigned short* template,
+        __global T* image,
+        __global T* template,
         //const unsigned int imageHeight,
         //const unsigned int imageWidth,
-        __global unsigned short* output) {
+        __global T* output) {
 
 /*
         if(get_local_id(0) < WINDOW_BUFFER_HEIGHT && get_local_id(1) < WINDOW_BUFFER_WIDTH) {
@@ -29,8 +29,8 @@ void soad(
         }
 */
         // The maximum possible image window and template we support in this kernel
-        __local unsigned short windowBuffer[WINDOW_BUFFER_HEIGHT + TEMPLATE_HEIGHT][WINDOW_BUFFER_WIDTH + TEMPLATE_WIDTH];
-        __local unsigned short templateBuffer[TEMPLATE_HEIGHT][TEMPLATE_WIDTH];
+        __local T windowBuffer[WINDOW_BUFFER_HEIGHT + TEMPLATE_HEIGHT][WINDOW_BUFFER_WIDTH + TEMPLATE_WIDTH];
+        __local T templateBuffer[TEMPLATE_HEIGHT][TEMPLATE_WIDTH];
 
         unsigned int gHeight = get_global_id(0);
         unsigned int gWidth = get_global_id(1);
@@ -83,7 +83,7 @@ void soad(
 
                 barrier(CLK_LOCAL_MEM_FENCE);
 
-                int sumAbsDiff = 0l;
+                T sumAbsDiff = 0l;
 
                         // Buffer the image in the window buffer
                         #pragma unroll

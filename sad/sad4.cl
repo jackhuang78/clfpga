@@ -1,9 +1,12 @@
 #include <sad.h>
 
-// Require macro OUT_DIV_LOCAL to be set
+// Only works if the size of OUT is a multiple of LOCAL_S
 
 __kernel 
 __attribute((reqd_work_group_size(LOCAL_S, LOCAL_S, 1)))
+__attribute__ ((num_simd_work_items(2)))
+//__attribute__ ((num_compute_units(2)))
+//__attribute__ ((max_share_resources(4)))
 void sad(__global T * image, __constant T * filter, __global T * out) {
 
 	int i, j;
@@ -21,7 +24,7 @@ void sad(__global T * image, __constant T * filter, __global T * out) {
 
 
 	// copy filters to __local memory
-	
+
 	if(local_r < FILTER_S && local_c < FILTER_S)
 		filter_temp[local_r][local_c] = FILTER(local_r, local_c);
 			
@@ -39,14 +42,14 @@ void sad(__global T * image, __constant T * filter, __global T * out) {
 
 
 	// computer SAD at for each point
-//	if(global_r < OUT_S && global_c < OUT_S) {
 	T sad = 0;	
+	#pragma unroll
 	for(i = 0; i < FILTER_S; i++)
+		#pragma unroll
 		for(j = 0; j < FILTER_S; j++) 
 			sad += ABS(filter_temp[i][j] - image_temp[local_r + i][local_c + j]);
 
 	OUT(global_r, global_c) = sad;
-	//}
 }
 
 

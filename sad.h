@@ -12,7 +12,7 @@
 
 
 #define TEMP_S		(LOCAL_S + FILTER_S - 1)
-#define LOCAL_S		32
+#define LOCAL_S		128
 #define GLOBAL_S	((OUT_S + (LOCAL_S - 1)) / LOCAL_S * LOCAL_S)
 
 

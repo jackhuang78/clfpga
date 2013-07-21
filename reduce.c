@@ -11,11 +11,11 @@
 #endif
 
 #ifndef TESTSZ
-#define TESTSZ 5
+#define TESTSZ 3
 #endif
 
 #ifndef DATASZ
-#define DATASZ 20
+#define DATASZ 27
 #endif
 
 #ifndef LOCALSZ

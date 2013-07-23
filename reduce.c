@@ -3,6 +3,7 @@
 #include <string.h>
 #include <CL/cl.h>
 #include "oclutil.h"
+#include <CL/cl_ext.h>
 
 #ifdef ALTERA
 #define KERNEL_EXT ".aocx"
@@ -11,11 +12,11 @@
 #endif
 
 #ifndef TESTSZ
-#define TESTSZ 3
+#define TESTSZ 10
 #endif
 
 #ifndef DATASZ
-#define DATASZ 27
+#define DATASZ 20
 #endif
 
 #ifndef LOCALSZ
@@ -122,13 +123,16 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 	float *out_data = (float *)malloc(out_data_sz);
 #endif
 	
+	// bank
+	float *in_data2 = &in_data[n/2];
 
 	printf("Input Data Size: %u\n", (unsigned)in_data_sz);
 	printf("Output Data Size: %u\n", (unsigned)out_data_sz);
 
 	// Create memory buffers
-	cl_mem in_data_mem, out_data_mem;
-	CHECK(in_data_mem = clCreateBuffer(context, CL_MEM_READ_WRITE, in_data_sz, NULL, &ret))
+	cl_mem in_data_mem, in_data2_mem, out_data_mem;	// bank
+	CHECK(in_data_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, in_data_sz/2, NULL, &ret))
+	CHECK(in_data2_mem = clCreateBuffer(context, CL_MEM_BANK_2_ALTERA | CL_MEM_READ_ONLY, in_data_sz/2, NULL, &ret))
 	CHECK(out_data_mem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret))
 
 
@@ -148,16 +152,18 @@ void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel,
 			in_data[j] = (rand_float() > 0.5) ? in_data[j] : -in_data[j];
 		}
 	
-		// Set kernel arguments.
+		// Set kernel arguments.	// bank
 		CHECKRET(ret, clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&in_data_mem))
-		CHECKRET(ret, clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&out_data_mem))	
-		CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(int), (void *)&nvec))	
-		CHECKRET(ret, clSetKernelArg(kernel, 3, lsz * sizeof(float) * vect, NULL))		 
+		CHECKRET(ret, clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&in_data2_mem))
+		CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&out_data_mem))	
+		CHECKRET(ret, clSetKernelArg(kernel, 3, sizeof(int), (void *)&nvec))	
+		//CHECKRET(ret, clSetKernelArg(kernel, 3, lsz * sizeof(float) * vect, NULL))		 
 
 		//printf("set args\n");
 
 		// Write input data to input buffer.
-		CHECKRET(ret, clEnqueueWriteBuffer(queue, in_data_mem, CL_TRUE, 0, in_data_sz, in_data, 0, NULL, NULL))
+		CHECKRET(ret, clEnqueueWriteBuffer(queue, in_data_mem, CL_TRUE, 0, in_data_sz/2, in_data, 0, NULL, NULL))
+		CHECKRET(ret, clEnqueueWriteBuffer(queue, in_data2_mem, CL_TRUE, 0, in_data_sz/2, in_data2, 0, NULL, NULL))
 
 		//printf("write input\n");
 

@@ -6,7 +6,7 @@ CLLIB = -L/opt/altera/13.0/AOCL/linux64/lib -lalterahalmmd -lalterammdpcie -lpkg
 _DEPS = makefile.altera oclutil.h sad.h
 
 # put object files here
-_OBJS = oclutil.o reduce.o sad.o
+_OBJS = oclutil.o #reduce.o sad.o
 
 
 IDIR =.
@@ -15,16 +15,20 @@ DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 CC=gcc
 
-all: makefile.altera $(ODIR)/reduce $(ODIR)/sad
+all: makefile.altera $(ODIR)/oclutil  #$(ODIR)/reduce $(ODIR)/sad
 
 # put executable here
-$(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
-	#gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+
+$(ODIR)/oclutil: $(ODIR)/oclutil.o
 	gcc -o $@ $^ -DLINUX -DALTERA $(CLLIB)
 
-$(ODIR)/sad: $(ODIR)/oclutil.o $(ODIR)/sad.o
-	#gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
-	gcc -o $@ $^ -DLINUX -DALTERA $(CLLIB)
+#$(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
+#	#gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+#	gcc -o $@ $^ -DLINUX -DALTERA $(CLLIB)
+
+#$(ODIR)/sad: $(ODIR)/oclutil.o $(ODIR)/sad.o
+#	#gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+#	gcc -o $@ $^ -DLINUX -DALTERA $(CLLIB)
 
 $(ODIR)/%.o: %.c $(DEPS)
 	mkdir -p $(ODIR)

@@ -326,16 +326,16 @@ int main(int argc, char **argv) {
 		printf("\tMAX_WORK_ITEM_DIMENSIONS: %u\n", uint_ptr[0]);
 		
 		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_ITEM_SIZES, (void **)&size_ptr);
-		printf("\tMAX_WORK_ITEM_SIZES: %u, %u, %u\n", size_ptr[0], size_ptr[1], size_ptr[2]);
+		printf("\tMAX_WORK_ITEM_SIZES: %lu, %lu, %lu\n", size_ptr[0], size_ptr[1], size_ptr[2]);
 
 		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_GROUP_SIZE, (void **)&size_ptr);
-		printf("\tMAX_WORK_GROUP_SIZE: %u\n", size_ptr[0]);
+		printf("\tMAX_WORK_GROUP_SIZE: %lu\n", size_ptr[0]);
 
 		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_GLOBAL_MEM_SIZE, (void **)&ulong_ptr);
-		printf("\tGLOBAL_MEM_SIZE: %u\n", ulong_ptr[0]);
+		printf("\tGLOBAL_MEM_SIZE: %lu\n", ulong_ptr[0]);
 
 		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_LOCAL_MEM_SIZE, (void **)&ulong_ptr);
-		printf("\tLOCAL_MEM_SIZE: %u\n", ulong_ptr[0]);
+		printf("\tLOCAL_MEM_SIZE: %lu\n", ulong_ptr[0]);
 
 	}
 

@@ -6,7 +6,7 @@ CLLIB = $(CUDA)/lib/ -l OpenCL
 _DEPS = makefile.amd oclutil.h sad.h
 
 # put object files here
-_OBJS = oclutil.o reduce.o sad.o
+_OBJS = oclutil.o #reduce.o sad.o
 
 
 IDIR =.
@@ -16,17 +16,20 @@ OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
 CC=gcc
 
 
-all: $(ODIR)/reduce $(ODIR)/sad 
+all: $(ODIR)/oclutil #$(ODIR)/reduce $(ODIR)/sad 
 
 # put executable here
-$(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
+$(ODIR)/oclutil: $(ODIR)/oclutil.o
 	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 
-$(ODIR)/sad: $(ODIR)/oclutil.o $(ODIR)/sad.o
-	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+#$(ODIR)/reduce: $(ODIR)/oclutil.o $(ODIR)/reduce.o
+#	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 
-$(ODIR)/sad_nithin: $(ODIR)/oclutil.o $(ODIR)/sad_nithin.o
-	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+#$(ODIR)/sad: $(ODIR)/oclutil.o $(ODIR)/sad.o
+#	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
+
+#$(ODIR)/sad_nithin: $(ODIR)/oclutil.o $(ODIR)/sad_nithin.o
+#	gcc -o $@ $^ -L $(CLLIB) $(MACRODEF)
 
 
 

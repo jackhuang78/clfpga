@@ -1,0 +1,44 @@
+# Library Files
+#INC = -I $(AMDAPPSDKROOT)/include/
+#LIB = -L $(AMDAPPSDKROOT)/lib/x86_64 -l OpenCL
+
+
+
+# Directory
+IDIR = .
+
+# Executables
+_EXES = test
+EXES = $(patsubst %,$(ODIR)/%,$(_EXES))
+
+CC=gcc
+
+all: $(EXES)
+
+#============================
+#	Building Executables
+#============================
+$(ODIR)/%: $(ODIR)/oclutil.o $(ODIR)/%.o
+	echo $(CLLIB)
+	$(CC) -o $@ $(CLLIB) $^ -lm
+
+
+
+#============================
+#	Building Object Files
+#============================
+$(ODIR)/%.o: %.c makefile makefile.sub
+	mkdir -p $(ODIR)
+	$(CC) -c -lm -o $@ $(CLINC) $< -lm
+	
+
+#============================
+#	Clean
+#============================
+.PRECIOUS: $(ODIR)/%.o
+.PHONY: clean
+clean:
+	rm -rf $(ODIR)
+
+
+

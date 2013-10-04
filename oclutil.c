@@ -101,14 +101,14 @@ cl_int oclGetDeviceInfo(cl_device_id device, cl_device_info device_info, void **
 	the kenrel file name, and the kernel name.
 */
 cl_int oclKernelSetup(cl_device_id device, char *kernel_file, char *kernel_name, 
-	cl_context *context, cl_command_queue *queue, cl_kernel *kernel) {
+	cl_context *context, cl_command_queue *queue, cl_kernel *kernel, 
+	cl_build_status *build_status, char **build_log) {
 
 	cl_int ret;
 	cl_program program;
 	char *source_str;
 	size_t source_sz;
 
-	//oclPrintDevInfo(device);
 
 	// Create context
 	*context = clCreateContext(NULL, 1, &device, NULL, NULL, &ret);
@@ -121,40 +121,50 @@ cl_int oclKernelSetup(cl_device_id device, char *kernel_file, char *kernel_name,
 		return ret;
 
 	// create program and kernel
-	/*if(DEBUG) {
-		printf("oclQuickSetup(): kernel_name: %s\n", kernel_name);
-		printf("oclQuickSetup(): kernel_file: %s\n", kernel_file);
-	}*/
+#ifdef OCL_DEBUG
+	printf("oclKernelSetup(): kernel_name: %s\n", kernel_name);
+	printf("oclKernelSetup(): kernel_file: %s\n", kernel_file);
+#endif
 
 	// create from source
 	if(kernel_file[strlen(kernel_file) - 1] == 'l') {
-		printf("Create from source\n");
+#ifdef OCL_DEBUG
+		printf("oclKernelSetup(): create from source\n");
+#endif
+
 		source_str = oclReadSrc(kernel_file, &source_sz);
 		program = clCreateProgramWithSource(*context, 1, (const char **)&source_str, (const size_t *)&source_sz, &ret);
 		if(ret != CL_SUCCESS)
 			return ret;
+		
 		clBuildProgram(program, 1, &device, "-I ./", NULL, NULL);
-		clGetProgramBuildInfo (program, device, CL_PROGRAM_BUILD_LOG, BUFFER_SIZE, buffer, NULL);
-		if(strlen(buffer) != 0)
-			printf("Build log:\n%s\n", buffer);
+		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), build_status, NULL);
+		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, BUFFER_SIZE, buffer, NULL);
+		*build_log = STRING(buffer);
 
 	// create from binary
 	} else {
-		printf("Create from binary\n");
+#ifdef OCL_DEBUG
+		printf("oclKernelSetup(): create from binary\n");
+#endif
 		unsigned char *binary = oclReadBinary(kernel_file, &source_sz);
 		cl_int status;
 		program = clCreateProgramWithBinary(*context, 1, &device, &source_sz, (const unsigned char **)&binary, &status, &ret);
 		if(status != CL_SUCCESS || ret != CL_SUCCESS) {
-			printf("Failed to create the program from the binary (clCreateProgramWithBinary).\n");
-			return -1;
+			*build_log = STRING("Failed to create the program from the binary (clCreateProgramWithBinary).");
+			*build_status = CL_BUILD_ERROR;
+			return ret != CL_SUCCESS ? ret : status;
 		}
+		*build_status = CL_BUILD_SUCCESS;
+		*build_log = STRING("");
 	}
-	
-	*kernel = clCreateKernel(program, kernel_name, &ret);
-	if(ret != CL_SUCCESS)
-		return ret;
 
-	return CL_SUCCESS;
+	if(ret != CL_SUCCESS || *build_status != CL_BUILD_SUCCESS) {
+		return ret;
+	}
+		
+	*kernel = clCreateKernel(program, kernel_name, &ret);		
+	return ret;
 }
 
 char *oclReadSrc(char *filename, size_t *src_size) {
@@ -195,6 +205,21 @@ unsigned char *oclReadBinary(char *filename, size_t *bin_size) {
 	
 	*bin_size = binary_length;
 	return binary;
+}
+
+cl_int oclGetProfilingInfo(cl_event *event, cl_ulong *queued, cl_ulong *submit, cl_ulong *start, cl_ulong *end) {
+
+	cl_int ret;
+
+    ret = clGetEventProfilingInfo(*event, CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), queued, NULL);
+	if(ret != CL_SUCCESS)	return ret;
+    ret = clGetEventProfilingInfo(*event, CL_PROFILING_COMMAND_SUBMIT, sizeof(cl_ulong), submit, NULL);
+	if(ret != CL_SUCCESS)	return ret;
+    ret = clGetEventProfilingInfo(*event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), start, NULL);    
+	if(ret != CL_SUCCESS)	return ret;
+    ret = clGetEventProfilingInfo(*event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), end, NULL);	
+
+	return ret;
 }
 
 const char *oclReturnCodeToString(cl_int error) {
@@ -281,66 +306,16 @@ const char *oclDeviceTypeToString(cl_device_type type) {
 	}
 }
 
-
-int main(int argc, char **argv) {
-	printf("======== oclutil.c ========\n");
-
-	int i;
-	char *char_ptr;
-	size_t *size_ptr;
-	cl_device_type *device_type_ptr;
-	cl_uint *uint_ptr;
-	cl_ulong *ulong_ptr;
-
-	cl_int ret;
-	cl_uint num_devices;
-	cl_device_id *devices;
-
-	ret = oclGetDevices(&num_devices, &devices);
-	if(ret != CL_SUCCESS) {
-		printf("ERROR in oclGetDevices(): %s\n", oclReturnCodeToString(ret));
-		return 1;
+const char *oclBuildStatusToString(cl_build_status status) {
+	switch(status) {
+	case CL_BUILD_NONE: return "CL_BUILD_NONE";
+	case CL_BUILD_ERROR: return "CL_BUILD_ERROR";
+	case CL_BUILD_SUCCESS: return "CL_BUILD_SUCCESS";
+	case CL_BUILD_IN_PROGRESS: return "CL_BUILD_IN_PROGRESS";
+	default: return "UNDEFINED";
 	}
-	printf("Devices found: %u\n", num_devices);
-
-
-	for(i = 0; i < num_devices; i++) {
-		printf("Device %d:\n", i);
-
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_NAME, (void **)&char_ptr);
-		printf("\tNAME: %s\n", char_ptr);
-
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_TYPE, (void **)&device_type_ptr);
-		printf("\tTYPE: %s\n", oclDeviceTypeToString(device_type_ptr[0]));
-
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_VENDOR, (void **)&char_ptr);
-		printf("\tVENDOR: %s\n", char_ptr);
-		
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_VERSION, (void **)&char_ptr);
-		printf("\tVERSION: %s\n", char_ptr);
-
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_MAX_COMPUTE_UNITS, (void **)&uint_ptr);
-		printf("\tMAX_COMPUTE_UNITS: %u\n", uint_ptr[0]);
-
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, (void **)&uint_ptr);
-		printf("\tMAX_WORK_ITEM_DIMENSIONS: %u\n", uint_ptr[0]);
-		
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_ITEM_SIZES, (void **)&size_ptr);
-		printf("\tMAX_WORK_ITEM_SIZES: %lu, %lu, %lu\n", size_ptr[0], size_ptr[1], size_ptr[2]);
-
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_GROUP_SIZE, (void **)&size_ptr);
-		printf("\tMAX_WORK_GROUP_SIZE: %lu\n", size_ptr[0]);
-
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_GLOBAL_MEM_SIZE, (void **)&ulong_ptr);
-		printf("\tGLOBAL_MEM_SIZE: %lu\n", ulong_ptr[0]);
-
-		ret = oclGetDeviceInfo(devices[i], CL_DEVICE_LOCAL_MEM_SIZE, (void **)&ulong_ptr);
-		printf("\tLOCAL_MEM_SIZE: %lu\n", ulong_ptr[0]);
-
-	}
-
-	return 0;
-
 }
+
+
 
 

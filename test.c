@@ -118,9 +118,9 @@ int main(int argc, char **argv) {
 		size_t out_data_sz = sizeof(T) * GSZ;
 		T *in_data0, *out_data0;
 		cl_mem in_data0_mem, out_data0_mem;
-		printf("Data Unit Size: %u\n", sizeof(T));
-		printf("Global Size: %u\n", gsz);
-		printf("Local Size: %u\n", lsz);
+		printf("Data Unit Size: %lu\n", sizeof(T));
+		printf("Global Size: %lu\n", gsz);
+		printf("Local Size: %lu\n", lsz);
 		printf("Input Data Size: %u\n", (unsigned)in_data_sz);
 		printf("Output Data Size: %u\n", (unsigned)out_data_sz);
 		
@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
 			}
 			ret0 = clEnqueueWriteBuffer(queue, in_data0_mem, CL_TRUE, 0, in_data_sz, in_data0, 0, NULL, NULL);
 			if(ret0 != CL_SUCCESS) {
-				printf("ERROR in clEnqueueWriteBuffer(): %s, %s\n", oclReturnCodeToString(ret0));
+				printf("ERROR in clEnqueueWriteBuffer(): %s\n", oclReturnCodeToString(ret0));
 				return -1;
 			}
 			
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
 			*/
 			ret0 = clEnqueueReadBuffer(queue, out_data0_mem, CL_TRUE, 0, out_data_sz, out_data0, 0, NULL, NULL);
 			if(ret0 != CL_SUCCESS) {
-				printf("ERROR in clEnqueueReadBuffer(): %s, %s\n", oclReturnCodeToString(ret0));
+				printf("ERROR in clEnqueueReadBuffer(): %s\n", oclReturnCodeToString(ret0));
 				return -1;
 			}
 
@@ -213,11 +213,11 @@ int main(int argc, char **argv) {
 			tot_error += errors[i];
 			//printf("%d\t%d\t%d\n", i, times[i], errors[i]);
 		}
-		printf("AVG\t%d\t%d\n", tot_time / ITER, tot_error / ITER);
+		printf("AVG\t%ld\t%d\n", tot_time / ITER, tot_error / ITER);
 
 		long avg, std;
 		getStat(times, &avg, &std);
-		printf("AVG\t%d\t%d\n", avg, std);
+		printf("AVG\t%ld\t%ld\n", avg, std);
 	}
 
 	printf("======= END test.c =======\n");

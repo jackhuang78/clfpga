@@ -80,7 +80,11 @@ int main(int argc, char **argv) {
 		int kernel_ver = atoi(argv[3]);
 		char kernel_name[100], kernel_file[100];
 		sprintf(kernel_name, "test%d_%d", kernel_num, kernel_ver);
+#ifdef ALTERA
+		sprintf(kernel_file, "test/%s.aocx", kernel_name);
+#else
 		sprintf(kernel_file, "test/%s.cl", kernel_name);
+#endif
 		printf("Running %s with device #%d\n", kernel_file, sel);
 		if(sel >= num_devices) {
 			printf("Device #%d does not exist.\n", sel);
@@ -215,9 +219,9 @@ int main(int argc, char **argv) {
 		}
 		printf("AVG\t%d\t%d\n", tot_time / ITER, tot_error / ITER);
 
-		long avg, std;
-		getStat(times, &avg, &std);
-		printf("AVG\t%d\t%d\n", avg, std);
+		//long avg, std;
+		//getStat(times, &avg, &std);
+		//printf("AVG\t%d\t%d\n", avg, std);
 	}
 
 	printf("======= END test.c =======\n");

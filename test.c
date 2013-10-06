@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 		int sel = atoi(argv[1]);
 		char *kernel_file = argv[2];
 		char *kernel_name = argv[3];
-		int data_size = atoi(argv[4]);
+		int data_size = atoi(argv[4]) << 20;
 		int iter = atoi(argv[5]);
 		printf("Running Test on device %d:\n", sel);
 		printf("\tKernel file: %s\n", kernel_file);

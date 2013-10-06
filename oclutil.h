@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <CL/cl.h>
 
-#define OCL_DEBUG
+//#define OCL_DEBUG
 
 //===================================
 //	Public Functions

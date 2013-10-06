@@ -1,7 +1,7 @@
 #include "test/test.h"
 
 __kernel
-//__attribute((reqd_work_group_size(GSZ, 1,1))) 
+__attribute((reqd_work_group_size(GSZ, 1,1))) 
 void test1_0(__global T *g_idata0, __global T *g_idata1, __global T *g_odata0, __global T *g_odata1, __local T* sdata) {
     unsigned int tid = get_local_id(0);
     unsigned int gid = get_global_id(0);

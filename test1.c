@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include <CL/cl.h>
+#include <CL/cl_ext.h>
 #include "oclutil.h"
 
 #include "test/test.h"
@@ -11,7 +13,11 @@
 #define CL_MEM_BANK_2_ALTERA 0
 #endif
 
-#define ITER 1
+#define AOCL_ALIGNMENT 64
+
+
+
+void getStat(long *times, long *avg, long *std);
 
 int main(int argc, char **argv) {
 	printf("======== BEGIN test.c ========\n");
@@ -71,21 +77,22 @@ int main(int argc, char **argv) {
 	}
 
 	
-	if(argc > 2) {
+	if(argc > 5) {
 		int sel = atoi(argv[1]);
-		int kernel_num = atoi(argv[2]);
-		int kernel_ver = atoi(argv[3]);
-		char kernel_name[100], kernel_file[100];
-		sprintf(kernel_name, "test%d_%d", kernel_num, kernel_ver);
-		sprintf(kernel_file, "test/%s.cl", kernel_name);
-		printf("Running %s with device #%d\n", kernel_file, sel);
+		char *kernel_file = argv[2];
+		char *kernel_name = argv[3];
+		int data_size = atoi(argv[4]) << 20;
+		int iter = atoi(argv[5]);
+		printf("Running Test on device %d:\n", sel);
+		printf("\tKernel file: %s\n", kernel_file);
+		printf("\tKernel: %s\n", kernel_name);
+		printf("\tData size: %d\n", data_size);
+		printf("\tIterations: %d\n", iter);
 		if(sel >= num_devices) {
 			printf("Device #%d does not exist.\n", sel);
 			return -1;
 		}
 
-
-		
 
 		/*
 			Build OCL kernel
@@ -111,77 +118,65 @@ int main(int argc, char **argv) {
 			Memory Allocation
 		*/
 		printf("Memory Allocation\n");
-		size_t in_data_sz = sizeof(T) * GSZ;
-		size_t out_data_sz = sizeof(T) * GSZ;
-		T *in_data0, *out_data0, *in_data1, *out_data1;
-		cl_mem in_data0_mem, out_data0_mem, in_data1_mem, out_data1_mem;
-		printf("Global Size: %d %u\n", GSZ, sizeof(T));
-		printf("Input Data Size: %u\n", (unsigned)in_data_sz);
-		printf("Output Data Size: %u\n", (unsigned)out_data_sz);
+		size_t gsz = data_size;
+		size_t lsz = GSZ;
+		size_t in_data_sz = sizeof(T) * data_size;
+		size_t out_data_sz = sizeof(T) * data_size;
+		T *in_data0, *out_data0;
+		cl_mem in_data0_mem, out_data0_mem;
+		printf("\tData Unit Size: %lu\n", sizeof(T));
+		printf("\tGlobal Size: %lu\n", gsz);
+		printf("\tLocal Size: %lu\n", lsz);
+		printf("\tInput Data Size: %u\n", (unsigned)in_data_sz);
+		printf("\tOutput Data Size: %u\n", (unsigned)out_data_sz);
 		
 #ifdef ALTERA		
 		posix_memalign ((void **)&in_data0, AOCL_ALIGNMENT, in_data_sz);	
-		posix_memalign ((void **)&in_data1, AOCL_ALIGNMENT, in_data_sz);	
 		posix_memalign ((void **)&out_data0, AOCL_ALIGNMENT, out_data_sz);	
-		posix_memalign ((void **)&out_data1, AOCL_ALIGNMENT, out_data_sz);	
 #else
 		in_data0 = (T *)malloc(in_data_sz);
-		in_data1 = (T *)malloc(in_data_sz);
 		out_data0 = (T *)malloc(out_data_sz);		
-		out_data1 = (T *)malloc(out_data_sz);		
 #endif
 		in_data0_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, in_data_sz, NULL, &ret0);
-		in_data1_mem = clCreateBuffer(context, CL_MEM_BANK_2_ALTERA | CL_MEM_READ_ONLY, in_data_sz, NULL, &ret1);
-		out_data0_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret2);
-		out_data1_mem = clCreateBuffer(context, CL_MEM_BANK_2_ALTERA | CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret3);
-		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS | ret2 != CL_SUCCESS | ret3 != CL_SUCCESS) {
-			printf("ERROR in clCreateBuffer(): %s, %s, %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1), 
-				oclReturnCodeToString(ret2), oclReturnCodeToString(ret3));
+		out_data0_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret1);
+		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
+			printf("ERROR in clCreateBuffer(): %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
+			return -1;
+		}
+
+		/*
+			Set Kernel Arguments
+		*/
+		ret0 = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&in_data0_mem);
+		ret1 = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&out_data0_mem);
+		ret = clSetKernelArg(kernel, 2, sizeof(T) * GSZ, NULL);
+		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS | ret != CL_SUCCESS) {
+			printf("ERROR in clSetKernelArg(): %s, %s, %s\n", 
+				oclReturnCodeToString(ret0), oclReturnCodeToString(ret1), oclReturnCodeToString(ret));
 			return -1;
 		}
 
 
-		long times[ITER];
-		int errors[ITER];
+		long times[iter];
+		int errors[iter];
 		srand(time(NULL));
-		for(i = 0; i < ITER; i++) {
-			
-
-			/*
-				Set Kernel Arguments
-			*/
-			ret0 = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&in_data0_mem);
-			ret1 = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&in_data1_mem);
-			ret2 = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&out_data0_mem);
-			ret3 = clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&out_data1_mem);
-			ret =  clSetKernelArg(kernel, 4, GSZ * sizeof(T), NULL);
-
-			if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS | ret2 != CL_SUCCESS | ret3 != CL_SUCCESS | ret != CL_SUCCESS) {
-				printf("ERROR in clSetKernelArg(): %s, %s, %s, %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1), 
-					oclReturnCodeToString(ret2), oclReturnCodeToString(ret3), oclReturnCodeToString(ret));
-				return -1;
-			}
-
+		for(i = 0; i < iter; i++) {
+		
 			/*
 				Enqueue Write Buffer
 			*/
-			for(j = 0; j < GSZ / 2; j++) {
+			for(j = 0; j < gsz; j++) {
 				in_data0[j] = (T) rand();
-				in_data1[j] = (T) rand();
 			}
 			ret0 = clEnqueueWriteBuffer(queue, in_data0_mem, CL_TRUE, 0, in_data_sz, in_data0, 0, NULL, NULL);
-			ret1 = clEnqueueWriteBuffer(queue, in_data1_mem, CL_TRUE, 0, in_data_sz, in_data1, 0, NULL, NULL);
-			if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
-				printf("ERROR in clEnqueueWriteBuffer(): %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
+			if(ret0 != CL_SUCCESS) {
+				printf("ERROR in clEnqueueWriteBuffer(): %s\n", oclReturnCodeToString(ret0));
 				return -1;
 			}
 			
 			/*
 				Enqueue N-D Range Kernel
 			*/
-			size_t gsz = GSZ;
-			size_t lsz = GSZ;
-			printf("gsz/lsz = %u, %u\n", gsz, lsz);
 			clFinish(queue);
 			cl_event event;
 			ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gsz, &lsz, 0, NULL, &event);
@@ -205,34 +200,62 @@ int main(int argc, char **argv) {
 				Read output and verify
 			*/
 			ret0 = clEnqueueReadBuffer(queue, out_data0_mem, CL_TRUE, 0, out_data_sz, out_data0, 0, NULL, NULL);
-			ret1 = clEnqueueReadBuffer(queue, out_data1_mem, CL_TRUE, 0, out_data_sz, out_data1, 0, NULL, NULL);
-			if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
-				printf("ERROR in clEnqueueReadBuffer(): %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
+			if(ret0 != CL_SUCCESS) {
+				printf("ERROR in clEnqueueReadBuffer(): %s\n", oclReturnCodeToString(ret0));
 				return -1;
 			}
 
 			errors[i] = 0;
-			for(j = 0; j < GSZ / 2; j++) {
-				errors[i] += (in_data0[j] != out_data0[j]) + (in_data1[j] != out_data1[j]);
+			for(j = 0; j < GSZ ; j++) {
+				errors[i] += (in_data0[j] != out_data0[j]);
 			}
 			
 			times[i] = end - start;
 		}
 
-		long avg_time = 0;
-		int avg_error = 0;
-		for(i = 0; i < ITER; i++) {
-			avg_time += times[i];
-			avg_error += errors[i];
-			printf("%d\t%d\t%d\n", i, times[i], errors[i]);
-		}
-		printf("AVG\t%d\n", avg_time / ITER);
-		printf("Error\t%d\n", avg_error / ITER);
+		long tot_time = 0;
+		int tot_error = 0;
+		FILE *f = fopen("test.out", "w");
+		for(i = 0; i < iter; i++) {
 
-	
+			if(i > 0) {
+				tot_time += times[i];
+				tot_error += errors[i];
+				fprintf(f, "%d\n", times[i]);
+			} else {
+				fprintf(f, "%d\n", data_size);
+			}
+			
+		}
+		fclose(f);
+		printf("Iterations:\t%d\n", iter);
+		printf("AVG time:\t%ld ns\n", tot_time / (iter - 1));
+		printf("Total errors:\t%d\n", tot_error);
 	}
 
 	printf("======= END test.c =======\n");
+	
 	return 0;
 
 }
+
+/*
+void getStat(long *times, long *avg, long *std) {
+	int i;	
+	long tot = 0;
+
+	
+	for(i = 0; i < iter; i++) {
+		tot += times[i];
+	}
+	*avg = tot / iter;
+
+	long sqtot = 0;
+	for(i = 0; i < ITER; i++) {
+		sqtot += (times[i] - *avg) * (times[i] - *avg);
+	}
+	*std = sqrt(sqtot / ITER);
+		
+}*/
+
+

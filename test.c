@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
 		char *kernel_name = argv[3];
 		int data_size = atoi(argv[4]) << 20;
 		int iter = atoi(argv[5]);
+		int check = atoi(argv[6]);
 		printf("Running Test on device %d:\n", sel);
 		printf("\tKernel file: %s\n", kernel_file);
 		printf("\tKernel: %s\n", kernel_name);
@@ -122,25 +123,31 @@ int main(int argc, char **argv) {
 		size_t lsz = GSZ;
 		size_t in_data_sz = sizeof(T) * data_size;
 		size_t out_data_sz = sizeof(T) * data_size;
-		T *in_data0, *out_data0;
-		cl_mem in_data0_mem, out_data0_mem;
+		T *in_data0, *in_data1, *out_data0, *out_data1;
+		cl_mem in_data0_mem, in_data1_mem, out_data0_mem, out_data1_mem;
 		printf("\tData Unit Size: %lu\n", sizeof(T));
 		printf("\tGlobal Size: %lu\n", gsz);
 		printf("\tLocal Size: %lu\n", lsz);
-		printf("\tInput Data Size: %u\n", (unsigned)in_data_sz);
-		printf("\tOutput Data Size: %u\n", (unsigned)out_data_sz);
+		printf("\tInput Memory Size: %u (x2)\n", (unsigned)in_data_sz);
+		printf("\tOutput Memory Size: %u (x2)\n", (unsigned)out_data_sz);
 		
 #ifdef ALTERA		
-		posix_memalign ((void **)&in_data0, AOCL_ALIGNMENT, in_data_sz);	
+		posix_memalign ((void **)&in_data0, AOCL_ALIGNMENT, in_data_sz);
+		posix_memalign ((void **)&in_data1, AOCL_ALIGNMENT, in_data_sz);		
 		posix_memalign ((void **)&out_data0, AOCL_ALIGNMENT, out_data_sz);	
+		posix_memalign ((void **)&out_data1, AOCL_ALIGNMENT, out_data_sz);	
 #else
 		in_data0 = (T *)malloc(in_data_sz);
+		in_data1 = (T *)malloc(in_data_sz);
 		out_data0 = (T *)malloc(out_data_sz);		
+		out_data1 = (T *)malloc(out_data_sz);		
 #endif
 		in_data0_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, in_data_sz, NULL, &ret0);
-		out_data0_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret1);
-		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
-			printf("ERROR in clCreateBuffer(): %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
+		in_data1_mem = clCreateBuffer(context, CL_MEM_BANK_2_ALTERA | CL_MEM_READ_ONLY, in_data_sz, NULL, &ret1);
+		out_data0_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret2);
+		out_data1_mem = clCreateBuffer(context, CL_MEM_BANK_2_ALTERA | CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret3);
+		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS | ret2 != CL_SUCCESS | ret3 != CL_SUCCESS) {
+			printf("ERROR in clCreateBuffer(): %s, %s, %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1), oclReturnCodeToString(ret2), oclReturnCodeToString(ret3));
 			return -1;
 		}
 
@@ -148,14 +155,19 @@ int main(int argc, char **argv) {
 			Set Kernel Arguments
 		*/
 		ret0 = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&in_data0_mem);
-		ret1 = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&out_data0_mem);
-		ret = clSetKernelArg(kernel, 2, sizeof(T) * GSZ, NULL);
-		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS | ret != CL_SUCCESS) {
-			printf("ERROR in clSetKernelArg(): %s, %s, %s\n", 
-				oclReturnCodeToString(ret0), oclReturnCodeToString(ret1), oclReturnCodeToString(ret));
+		ret1 = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&in_data1_mem);
+		ret2 = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&out_data0_mem);
+		ret3 = clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&out_data1_mem);
+		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS | ret2 != CL_SUCCESS | ret3 != CL_SUCCESS) {
+			printf("ERROR in clSetKernelArg() for global mem: %s, %s, %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1), oclReturnCodeToString(ret2), oclReturnCodeToString(ret3));
 			return -1;
 		}
-
+		ret0 = clSetKernelArg(kernel, 4, sizeof(T) * lsz, NULL);
+		ret1 = clSetKernelArg(kernel, 5, sizeof(T) * lsz, NULL);
+		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
+			printf("ERROR in clSetKernelArg() for local mem: %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
+			return -1;
+		}
 
 		long times[iter];
 		int errors[iter];
@@ -167,10 +179,14 @@ int main(int argc, char **argv) {
 			*/
 			for(j = 0; j < gsz; j++) {
 				in_data0[j] = (T) rand();
+				in_data1[j] = (T) rand();
+				out_data0[j] = (T) rand();
+				out_data1[j] = (T) rand();
 			}
 			ret0 = clEnqueueWriteBuffer(queue, in_data0_mem, CL_TRUE, 0, in_data_sz, in_data0, 0, NULL, NULL);
-			if(ret0 != CL_SUCCESS) {
-				printf("ERROR in clEnqueueWriteBuffer(): %s\n", oclReturnCodeToString(ret0));
+			ret1 = clEnqueueWriteBuffer(queue, in_data1_mem, CL_TRUE, 0, in_data_sz, in_data1, 0, NULL, NULL);
+			if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
+				printf("ERROR in clEnqueueWriteBuffer(): %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
 				return -1;
 			}
 			
@@ -200,14 +216,20 @@ int main(int argc, char **argv) {
 				Read output and verify
 			*/
 			ret0 = clEnqueueReadBuffer(queue, out_data0_mem, CL_TRUE, 0, out_data_sz, out_data0, 0, NULL, NULL);
-			if(ret0 != CL_SUCCESS) {
-				printf("ERROR in clEnqueueReadBuffer(): %s\n", oclReturnCodeToString(ret0));
+			ret1 = clEnqueueReadBuffer(queue, out_data1_mem, CL_TRUE, 0, out_data_sz, out_data1, 0, NULL, NULL);
+			if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
+				printf("ERROR in clEnqueueReadBuffer(): %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
 				return -1;
 			}
 
 			errors[i] = 0;
-			for(j = 0; j < GSZ ; j++) {
-				errors[i] += (in_data0[j] != out_data0[j]);
+			for(j = 0; j < gsz; j++) {
+				errors[i] += in_data0[j] != out_data0[j];
+				if(check == 1)
+					errors[i] += in_data1[j] != out_data1[j];
+			
+//				printf("%f != %f\t%f!=%f\n", in_data0[j], out_data0[j], in_data1[j], out_data1[j]);
+
 			}
 			
 			times[i] = end - start;
@@ -227,6 +249,7 @@ int main(int argc, char **argv) {
 			}
 			
 		}
+		fprintf(f, "%d\n", tot_error);
 		fclose(f);
 		printf("Iterations:\t%d\n", iter);
 		printf("AVG time:\t%ld ns\n", tot_time / (iter - 1));
@@ -257,5 +280,6 @@ void getStat(long *times, long *avg, long *std) {
 	*std = sqrt(sqtot / ITER);
 		
 }*/
+
 
 

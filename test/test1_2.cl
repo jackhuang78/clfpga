@@ -10,5 +10,7 @@ void test1(__global T *g_idata, __global T *g_odata, __local T *sdata) {
 	barrier(CLK_LOCAL_MEM_FENCE);
 	sdata[tid] += g_idata[gid];
 	barrier(CLK_LOCAL_MEM_FENCE);
+	sdata[tid] += g_idata[gid];
+	barrier(CLK_LOCAL_MEM_FENCE);
 	g_odata[gid] = sdata[tid];
 }

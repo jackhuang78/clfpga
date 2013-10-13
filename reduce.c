@@ -1,237 +1,243 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <math.h>
 #include <CL/cl.h>
-#include "oclutil.h"
 #include <CL/cl_ext.h>
+#include "oclutil.h"
 
-#ifdef ALTERA
-#define KERNEL_EXT ".aocx"
-#else
-#define KERNEL_EXT ".cl"
-#endif
+#include "test/test.h"
 
-#ifndef TESTSZ
-#define TESTSZ 5
-#endif
-
-#ifndef DATASZ
-#define DATASZ 28
-#endif
-
-#ifndef LOCALSZ
-#define LOCALSZ 128
-#endif
-
-#ifndef MARGIN
-#define MARGIN 1.0
-#endif
-
-#ifndef ALTERA
+#ifndef CL_MEM_BANK_1_ALTERA
 #define CL_MEM_BANK_1_ALTERA 0
 #define CL_MEM_BANK_2_ALTERA 0
 #endif
 
 #define AOCL_ALIGNMENT 64
 
-void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel, int vect, int half, int bank, int kg);
+#define T float
+#define blockSize 128
 
+
+void getStat(long *times, long *avg, long *std);
 
 int main(int argc, char **argv) {
-	int i, J;
-	printf("\n>>>>> reduce.c <<<<<\n\n");
+	printf("======== BEGIN test.c ========\n");
 
-
-	// Get all available devices.
+	int i, j;
+	cl_int ret, ret0, ret1, ret2, ret3;
 	cl_uint num_devices;
 	cl_device_id *devices;
-	oclCLDevices(&num_devices, &devices);
 
-	// Display all available devices.
-	printf("OpenCL devices:\n");
-	for(i = 0; i < num_devices; i++) {
-		printf("Device %d:\n", i);
-		oclPrintDeviceInfo(devices[i], "\t");
+	/*
+		Get devices
+	*/
+	ret = oclGetDevices(&num_devices, &devices);
+	if(ret != CL_SUCCESS) {
+		printf("ERROR in oclGetDevices(): %s\n", oclReturnCodeToString(ret));
+		return 1;
 	}
 
-	// Determine the selected device from command-line input.
-	int dev_sel = (argc < 2) ? 0 : atoi(argv[1]);	// the second argument
-	printf("\nSelect device [%d].\n\n", dev_sel);
-	if(dev_sel < 0 || dev_sel >= num_devices)
+	if(argc < 5) {
+		printf("Not enough arguments\n");
 		return -1;
-	cl_device_id device = devices[dev_sel];
+	}
+	
+	
+	/*
+		Parse arguments
+	*/
+	int sel = atoi(argv[1]);
+	char *kernel_file = argv[2];
+	char *kernel_name = argv[3];
+	int form = atoi(argv[4]);
+	int num_data = atoi(argv[5]) << 20;
+	int iter = atoi(argv[6]);
 
-	// Determine the kernel name and file from command-line input.
-	char *kernel_name = (argc < 3) ? "reduce0" : argv[2];
-#ifdef ALTERA
-	char *kernel_file = (argc < 4) ? "reduce0.aocx" : argv[3];
-#else
-	char *kernel_file = (argc < 4) ? "reduce0.cl" : argv[3];
-#endif
-	printf("Kernel Name: %s\n", kernel_name);
-	printf("Kernel File: %s\n", kernel_file);
-
-	// Determine the data vectorization from kernel filename
-	int vect = (argc < 5) ? 1 : atoi(argv[4]);
-	int half = (argc < 6) ? 0 : atoi(argv[5]);
-	int bank = (argc < 7) ? 0 : atoi(argv[6]);
-	int kg = (argc < 8) ? 0 : atoi(argv[7]);
-	printf("Data Vector: %d\n", vect);
-	printf("Half: %d\n", half);
-	printf("Bank: %d\n", bank);
-	printf("kg: %d\n", kg);
+	printf("Running Test on device %d:\n", sel);
+	printf("\tKernel file: %s\n", kernel_file);
+	printf("\tKernel: %s\n", kernel_name);
+	pritnf("\tKernel form: %d\n", form);
+	printf("\tData size: %d\n", data_size);
+	printf("\tIterations: %d\n", iter);
+	if(sel >= num_devices) {
+		printf("Device #%d does not exist.\n", sel);
+		return -1;
+	}
 
 
-	// Set up OpenCL context, command queue, and kernel.
+	/*
+		Build OCL kernel
+	*/
+	printf("Build OCL Kernels\n");
 	cl_context context;
 	cl_command_queue queue;
 	cl_kernel kernel;
-	if(oclQuickSetup(device, kernel_file, kernel_name, &context, &queue, &kernel)) {
+	cl_build_status status;
+	char *log;
+	ret = oclKernelSetup(devices[sel], kernel_file, kernel_name, 
+		&context, &queue, &kernel, &status, &log);
+	if(ret != CL_SUCCESS) {
+		printf("ERROR in oclKernelSetup(): %s\n", oclReturnCodeToString(ret));
+		return -1;
+	} else if(status != CL_BUILD_SUCCESS) {
+		printf("Build status:%s\n", oclBuildStatusToString(status));
+		printf("Build log:\n%s\n", log);
 		return -1;
 	}
-	reduce(context, queue, kernel, vect, half, bank, kg);
 
-	return 0;
-}
-
-void reduce(cl_context context, cl_command_queue queue, cl_kernel kernel, 
-	int vect, int half, int bank, int kg) {
-	int i, j;
-	cl_int ret;
-
-	// Calculate numbers...
-	int n = 1 << DATASZ;
-	int nvec = n / vect; 
-	size_t lsz = LOCALSZ;
-	int nwg = ROUNDUP(nvec, lsz);
-	size_t gsz = lsz * nwg;
-
-	if(half) {
-		lsz /= 2;
-		gsz /= 2;
-	}
-
+	/* 
+		Memory Allocation
+	*/
+	printf("Memory Allocation\n");
+	size_t gsz = num_data;
+	size_t lsz = blockSize;
+	size_t nwg = data_size / lsz;
+	size_t in_data_sz = sizeof(T) * num_data;
+	size_t out_data_sz = sizeof(T) * nwg;
+	T *in_data, *out_data;
+	cl_mem in_data_mem, out_data_mem;
+	printf("\tData Unit Size: %lu\n", sizeof(T));
+	printf("\tGlobal Size: %lu\n", gsz);
+	printf("\tLocal Size: %lu\n", lsz);
+	printf("\tNumber of Workgroups: %lu\n", nwg)
+	printf("\tInput Memory Size: %u \n", (unsigned)in_data_sz);
+	printf("\tOutput Memory Size: %u \n", (unsigned)out_data_sz);
 	
-
-	printf("Number of elements: %d\n", n);
-	printf("Number of vector elements: %d\n", nvec);
-	printf("Number of Workgroups: %d\n", nwg);
-	printf("Local size: %u\n", (unsigned)lsz);
-	printf("Global size: %u\n", (unsigned)gsz);
-
-	// Calcualte more numbers...
-	size_t in_data_sz = sizeof(float) * n;
-	size_t out_data_sz = sizeof(float) * nwg;
-
-#ifdef ALTERA
-	float *in_data, *out_data;
-	posix_memalign ((void **)&in_data, AOCL_ALIGNMENT, in_data_sz);	
+#ifdef ALTERA		
+	posix_memalign ((void **)&in_data, AOCL_ALIGNMENT, in_data_sz);
 	posix_memalign ((void **)&out_data, AOCL_ALIGNMENT, out_data_sz);	
 #else
-	float *in_data = (float *)malloc(in_data_sz);
-	float *out_data = (float *)malloc(out_data_sz);
+	in_data = (T *)malloc(in_data_sz);
+	out_data = (T *)malloc(out_data_sz);		
 #endif
-	float *in_data2 = &in_data[n/2]; 	// bank
-
-	printf("Input Data Size: %u\n", (unsigned)in_data_sz);
-	printf("Output Data Size: %u\n", (unsigned)out_data_sz);
-
-	// Create memory buffers
-	cl_mem in_data_mem, in_data2_mem, out_data_mem;	// bank
-	if(!bank) {
-		CHECK(in_data_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, in_data_sz, NULL, &ret))
-	} else {
-		CHECK(in_data_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, in_data_sz/2, NULL, &ret))
-		CHECK(in_data2_mem = clCreateBuffer(context, CL_MEM_BANK_2_ALTERA | CL_MEM_READ_ONLY, in_data_sz/2, NULL, &ret))
+	in_data_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, in_data_sz, NULL, &ret0);
+	out_data_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret1);
+	if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
+		printf("ERROR in clCreateBuffer(): %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
+		return -1;
 	}
-	CHECK(out_data_mem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, out_data_sz, NULL, &ret))
 
+	/*
+		Set Kernel Arguments
+	*/
+	ret0 = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&in_data_mem);
+	ret1 = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&out_data_mem);
+	ret2 = clSetKernelArg(kernel, 2, sizeof(int), (void *)&num_data);
+	ret3 = clSetKernelArg(kernel, 3, lsz * sizeof(T), NULL);
+	if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS | ret2 != CL_SUCCESS | ret3 != CL_SUCCESS) {
+		printf("ERROR in clSetKernelArg(): %s, %s, %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1), oclReturnCodeToString(ret2), oclReturnCodeToString(ret3));
+		return -1;
+	}
 
-	float total_time = 0.0;
-	float total_error = 0.0;
-	float total_time_except_first = 0.0;
-	float total_error_except_first = 0.0;
-	printf("Run\tTime(sec)\tError(%%)\tStatus\tExpected\tActual\n");
-	for(i = 0; i < TESTSZ; i++) {
-		
+	long times[iter];
+	int errors[iter];
+	srand(time(NULL));
+	for(i = 0; i < iter; i++) {
 	
-		// Generate input data.
-		for(j = 0; j < n; j++) {
-			in_data[j] = rand_float();
-			
-			
-			in_data[j] = (rand_float() > 0.5) ? in_data[j] : -in_data[j];
+		/*
+			Enqueue Write Buffer
+		*/
+		for(j = 0; j < num_data; j++) {
+			in_data[j] = (float)rand()/(float)RAND_MAX;
+			out_data[j] = (float)rand()/(float)RAND_MAX;
 		}
-	
-		// Set kernel arguments.	// bank
-		if(!bank) {
-			CHECKRET(ret, clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&in_data_mem))
-			CHECKRET(ret, clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&out_data_mem))
-			CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(int), (void *)&nvec))
-			CHECKRET(ret, clSetKernelArg(kernel, 3, lsz * sizeof(float) * vect, NULL))		 
-			CHECKRET(ret, clEnqueueWriteBuffer(queue, in_data_mem, CL_TRUE, 0, in_data_sz, in_data, 0, NULL, NULL))
-		} else {
-			CHECKRET(ret, clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&in_data_mem))
-			CHECKRET(ret, clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&in_data2_mem))
-			CHECKRET(ret, clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&out_data_mem))	
-			CHECKRET(ret, clSetKernelArg(kernel, 3, sizeof(int), (void *)&nvec))
-			if(!kg)	{
-				CHECKRET(ret, clSetKernelArg(kernel, 4, lsz * sizeof(float) * vect, NULL))		 
-			} 
-			CHECKRET(ret, clEnqueueWriteBuffer(queue, in_data_mem, CL_TRUE, 0, in_data_sz/2, in_data, 0, NULL, NULL))
-			CHECKRET(ret, clEnqueueWriteBuffer(queue, in_data2_mem, CL_TRUE, 0, in_data_sz/2, in_data2, 0, NULL, NULL))
+		ret0 = clEnqueueWriteBuffer(queue, in_data_mem, CL_TRUE, 0, in_data_sz, in_data, 0, NULL, NULL);
+		if(ret0 != CL_SUCCESS) {
+			printf("ERROR in clEnqueueWriteBuffer(): %s\n", oclReturnCodeToString(ret0));
+			return -1;
 		}
-
 		
-	
-
-		//printf("write input\n");
-
-		// Run and profile the kernel.
+		/*
+			Enqueue N-D Range Kernel
+		*/
 		clFinish(queue);
 		cl_event event;
-		CHECKRET(ret, clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gsz, &lsz, 0, NULL, &event))
+		ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gsz, &lsz, 0, NULL, &event);
+		if(ret != CL_SUCCESS) {
+			printf("ERROR in clEnqueueNDRangeKernel(): %s\n", oclReturnCodeToString(ret));				
+			return -1;
+		}
 		clWaitForEvents(1, &event);
-		float time = oclExecutionTime(&event);
+
+		/* 
+			Get Profiling Info 
+		*/
+		cl_ulong queued, submit, start, end;
+		ret = oclGetProfilingInfo(&event, &queued, &submit, &start, &end);
+		if(ret != CL_SUCCESS) {
+			printf("ERROR in oclGetProfilingInfo(): %s\n", oclReturnCodeToString(ret));				
+			return -1;
+		}
+
+		/*
+			Read output and verify
+		*/
+		ret0 = clEnqueueReadBuffer(queue, out_data0_mem, CL_TRUE, 0, out_data_sz, out_data0, 0, NULL, NULL);
+		ret1 = clEnqueueReadBuffer(queue, out_data1_mem, CL_TRUE, 0, out_data_sz, out_data1, 0, NULL, NULL);
+		if(ret0 != CL_SUCCESS | ret1 != CL_SUCCESS) {
+			printf("ERROR in clEnqueueReadBuffer(): %s, %s\n", oclReturnCodeToString(ret0), oclReturnCodeToString(ret1));
+			return -1;
+		}
+
+		errors[i] = 0;
+		for(j = 0; j < gsz; j++) {
+			errors[i] += in_data0[j] != out_data0[j];
+			if(check == 1)
+				errors[i] += in_data1[j] != out_data1[j];
 		
-		//printf("launch kernel\n");
-	
-		// Read output data from output buffer.
-		//printf("out_data_sz: %u, out_data_mem: %u\n", out_data_sz, sizeof(out_data_mem));
-		CHECKRET(ret, clEnqueueReadBuffer(queue, out_data_mem, CL_TRUE, 0, out_data_sz, out_data, 0, NULL, NULL))
+//				printf("%f != %f\t%f!=%f\n", in_data0[j], out_data0[j], in_data1[j], out_data1[j]);
 
-		//printf("read output\n");
-
-		// Verify results
-		float actual = 0.0;
-		float expected = 0.0;
-		for(j = 0; j < n; j++)
-			expected += in_data[j];
-		for(j = 0; j < nwg; j++) 
-			actual += out_data[j];
-		float error = (actual - expected) / expected * 100;
-		error = (error < 0) ? -error : error;
-		char *status = (error > MARGIN) ? "FAIL" : "pass";
-
-		printf("%d\t%f\t%f\t%s\t%f\t%f\n", i, time, error,  status, expected, actual);
-
-		total_time += time;
-		total_error += error;
-
-		total_time_except_first += (i == 0) ? 0.0 : time;
-		total_error_except_first += (i == 0) ? 0.0 : error;
+		}
+		
+		times[i] = end - start;
 	}
 
-	float avg_time = total_time / TESTSZ;
-	float avg_error = total_error / TESTSZ;
-	char *avg_status = (avg_error > MARGIN) ? "FAIL" : "pass";
-	printf("%s\t%f\t%f\t%s\n", "AVG(c)", avg_time, avg_error, avg_status);
+	long tot_time = 0;
+	int tot_error = 0;
+	FILE *f = fopen("test.out", "w");
+	for(i = 0; i < iter; i++) {
 
-	avg_time = total_time_except_first / (TESTSZ-1);
-	avg_error = total_error_except_first / (TESTSZ-1);
-	avg_status = (avg_error > MARGIN) ? "FAIL" : "pass";
+		if(i > 0) {
+			tot_time += times[i];
+			tot_error += errors[i];
+			fprintf(f, "%d\n", times[i]);
+		} else {
+			fprintf(f, "%d\n", data_size);
+		}
+		
+	}
+	fprintf(f, "%d\n", tot_error);
+	fclose(f);
+	printf("Iterations:\t%d\n", iter);
+	printf("AVG time:\t%ld ns\n", tot_time / (iter - 1));
+	printf("Total errors:\t%d\n", tot_error);
 
-	printf("%s\t%f\t%f\t%s\n", "AVG(w)", avg_time, avg_error, avg_status);
 
-	printf("finishes execution\n");
+	printf("======= END reduce.c =======\n");
+	
+	return 0;
+
 }
+
+/*
+void getStat(long *times, long *avg, long *std) {
+	int i;	
+	long tot = 0;
+
+	
+	for(i = 0; i < iter; i++) {
+		tot += times[i];
+	}
+	*avg = tot / iter;
+
+	long sqtot = 0;
+	for(i = 0; i < ITER; i++) {
+		sqtot += (times[i] - *avg) * (times[i] - *avg);
+	}
+	*std = sqrt(sqtot / ITER);
+		
+}*/
+
+
+

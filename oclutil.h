@@ -5,6 +5,21 @@
 #include <stdlib.h>
 #include <CL/cl.h>
 
+#define CHECK_RC(ret, msg) \
+	if(ret != CL_SUCCESS) {\
+		printf("ERROR in %s: %s\n", msg, oclReturnCodeToString(ret));\
+		exit(-1);\
+	}
+
+#define CHECK_BS(ret, msg, log) \
+	if(ret != CL_BUILD_SUCCESS) {\
+		printf("ERROR in %s: %s\n", msg, oclBuildStatusToString(ret));\
+		printf("Build log: %s\n", log);\
+		exit(-1);\
+	}
+
+
+
 //#define OCL_DEBUG
 
 //===================================
@@ -20,6 +35,7 @@ char *oclDeviceInfo(cl_device_id device);
 const char *oclReturnCodeToString(cl_int code);
 const char *oclDeviceTypeToString(cl_device_type type);
 const char *oclBuildStatusToString(cl_build_status status);
+cl_int oclPrintDeviceInfo(cl_device_id device, char *pre);
 char *oclReadSrc(char *filename, size_t *src_size);
 unsigned char *oclReadBinary(char *filename, size_t *bin_size);
 

@@ -33,7 +33,7 @@ cl_int oclGetDevices(cl_uint *num_devices_, cl_device_id **devices_) {
 	cl_uint num_devices, tot_num_devices;
 	cl_device_id *devices, *tot_devices;	
 
-	// Initially, set NUM_DEIVCES to 0.
+	// Initially, set NUM_deviceS to 0.
 	tot_num_devices = 0;	
 	
 	// Get number of platforms. Return if none found
@@ -316,6 +316,59 @@ const char *oclBuildStatusToString(cl_build_status status) {
 	}
 }
 
+cl_int oclPrintDeviceInfo(cl_device_id device, char *pre) {
+
+	cl_int ret;
+	char *char_ptr;
+	size_t *size_ptr;
+	cl_device_type *device_type_ptr;
+	cl_uint *uint_ptr;
+	cl_ulong *ulong_ptr;
+
+	printf("%sID: %lu\n", pre, (unsigned long)device);
+
+	ret = oclGetDeviceInfo(device, CL_DEVICE_NAME, (void **)&char_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sNAME: %s\n", pre, char_ptr);
+
+	ret = oclGetDeviceInfo(device, CL_DEVICE_TYPE, (void **)&device_type_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sTYPE: %s\n", pre, oclDeviceTypeToString(device_type_ptr[0]));
+
+	ret = oclGetDeviceInfo(device, CL_DEVICE_VENDOR, (void **)&char_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sVENDOR: %s\n", pre, char_ptr);
+	
+	ret = oclGetDeviceInfo(device, CL_DEVICE_VERSION, (void **)&char_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sVERSION: %s\n", pre, char_ptr);
+
+	ret = oclGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, (void **)&uint_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sMAX_COMPUTE_UNITS: %u\n", pre, uint_ptr[0]);
+
+	ret = oclGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, (void **)&uint_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sMAX_WORK_ITEM_DIMENSIONS: %u\n", pre, uint_ptr[0]);
+	
+	ret = oclGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, (void **)&size_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sMAX_WORK_ITEM_SIZES: %lu, %lu, %lu\n", pre, size_ptr[0], size_ptr[1], size_ptr[2]);
+
+	ret = oclGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, (void **)&size_ptr);
+	if(ret != CL_SUCCESS)	 return ret;
+	printf("%sMAX_WORK_GROUP_SIZE: %lu\n", pre, size_ptr[0]);
+
+	ret = oclGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, (void **)&ulong_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sGLOBAL_MEM_SIZE: %lu\n", pre, ulong_ptr[0]);
+
+	ret = oclGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, (void **)&ulong_ptr);
+	if(ret != CL_SUCCESS) 	return ret;
+	printf("%sLOCAL_MEM_SIZE: %lu\n", pre, ulong_ptr[0]);
+
+	return CL_SUCCESS;
+}
 
 
 

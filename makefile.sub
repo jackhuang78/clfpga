@@ -8,7 +8,7 @@
 IDIR = .
 
 # Executables
-_EXES = test
+_EXES = benchmark
 EXES = $(patsubst %,$(ODIR)/%,$(_EXES))
 
 CC=gcc

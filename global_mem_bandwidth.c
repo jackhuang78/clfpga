@@ -16,24 +16,25 @@
 #define LSZ 256
 #define GSZ (1024 * 4 *  LSZ)
 #define EXTRA 31
+#define OFFSET 4096
 
 typedef enum {
-	global_read_linear,
-	global_read_linear_uncached,
-	global_read_single,
-	global_write_linear,
-	global_read_random,
-	global_read_random1,
-	global_read_uncoalescing
+	read_linear,
+	read_linear_uncached,
+	read_single,
+	write_linear,
+	read_random,
+	read_random1,
+	read_uncoalescing
 } kernel_t;
 kernel_t to_kernel_id(char *kernel_name);
 double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name, 
 				T *input, T *output, T *golden, size_t input_sz, size_t output_sz,
 				int iter, int verify);
-int verify_kernel(T *input, T *output, T *golden, size_t input_sz, size_t output_sz, kernel_t kid);
+int verify_kernel(T *input, T *output, T *c0, T *golden, size_t input_sz, size_t output_sz, kernel_t kid);
 
 int main(int argc, char **argv) {
-	printf("======== BEGIN benchmark.c ========\n");
+	printf("======== BEGIN global_mem_bandwidth.c ========\n");
 	int i, j;
 	cl_int ret, ret0, ret1, ret2, ret3;
 
@@ -91,13 +92,17 @@ int main(int argc, char **argv) {
 	printf("Run kernels\n");
 	double bw;
 
-	bw = run_kernel(devices[sel], "benchmark/global_read_linear.cl", "global_read_linear", 
+	bw = run_kernel(devices[sel], "global_mem_bandwidth/read_linear.cl", "read_linear", 
 					input, output, golden, input_sz, output_sz, iter, verify);
-	printf("\tglobal_read_linear: %f MB/s\n", bw/1024/1024);
+	printf("\tread_linear:\t%f MB/s\n", bw/1024/1024);
 
-	bw = run_kernel(devices[sel], "benchmark/global_read_single.cl", "global_read_single", 
+	bw = run_kernel(devices[sel], "global_mem_bandwidth/read_single.cl", "read_single", 
 					input, output, golden, input_sz, output_sz, iter, verify);
-	printf("\tglobal_read_single: %f MB/s\n", bw/1024/1024);
+	printf("\tread_single:\t%f MB/s\n", bw/1024/1024);
+
+	bw = run_kernel(devices[sel], "global_mem_bandwidth/write_linear.cl", "write_linear", 
+					input, output, golden, input_sz, output_sz, iter, verify);
+	printf("\twrite_linear:\t%f MB/s\n", bw/1024/1024);
 	
 	free(input);
 	free(output);
@@ -132,11 +137,14 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 	/**
 	 *	Initialize device memory buffers
 	 */
-	cl_mem input_mem, output_mem;
+	cl_mem input_mem, output_mem, const_mem;
 	input_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, input_sz, NULL, &ret);
 	CHECK_RC(ret, "clCreateBuffer(input_mem)")
 	output_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, output_sz, NULL, &ret);
 	CHECK_RC(ret, "clCreateBuffer(output_mem)")
+	const_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(T), NULL, &ret);
+	CHECK_RC(ret, "clCreateBuffer(const_mem)")
+
 
 
 	/**
@@ -150,24 +158,43 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 		fflush(stdout);
 		
 		/**
-		 *	Initialize input buffer if verificatoin is needed
+		 *	Initialize input buffer
 		 */
-		if(verify) {
-			for(j = 0; j < GSZ + EXTRA; j++)
-				input[j] = (T) rand();
+		for(j = 0; j < GSZ + EXTRA; j++)
+			input[j] = (T) rand();
+		T c0[1];
+		c0[0] = 123;
+		
+		switch(kid) {
+		case read_linear:
+		case read_single:
 			ret = clEnqueueWriteBuffer(queue, input_mem, CL_TRUE, 0, input_sz, input, 0, NULL, NULL);
-			CHECK_RC(ret, "clEnqueueWriteBuffer()")
+			CHECK_RC(ret, "clEnqueueWriteBuffer(input_mem)")
+			break;
+		
+		case write_linear:
+			ret = clEnqueueWriteBuffer(queue, const_mem, CL_TRUE, 0, sizeof(T), c0, 0, NULL, NULL);
+			CHECK_RC(ret, "clEnqueueWriteBuffer(const_mem)")				
+			break;
 		}
 
+		//printf("finsh enqueue write\n");
 
 		/**
 		 *	Set kernel arguments
 		 */
 		switch(kid) {
-		case global_read_linear:	
-		case global_read_single:	
+		case read_linear:	
+		case read_single:	
 			ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&input_mem);
 			CHECK_RC(ret, "clSetKernelArg(input)")
+			ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&output_mem);
+			CHECK_RC(ret, "clSetKernelArg(output)")
+			break;
+
+		case write_linear:
+			ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&const_mem);
+			CHECK_RC(ret, "clSetKernelArg(c0)")			
 			ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&output_mem);
 			CHECK_RC(ret, "clSetKernelArg(output)")
 			break;
@@ -186,7 +213,7 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 		clFinish(queue);
 		ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gsz, &lsz, 0, NULL, &event);
 		CHECK_RC(ret, "clEnqueueNDRangeKernel()")
-		//ret = clWaitForEvents(1, &event);
+		ret = clWaitForEvents(1, &event);
 		CHECK_RC(ret, "clWaitForEvents()");
 		ret = oclGetProfilingInfo(&event, &queued, &submit, &start, &end);
 		CHECK_RC(ret, "oclGetProfilingInfo()")
@@ -194,16 +221,20 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 		if(i != 0)
 			seconds += ((double)(end - start)) * 1e-9;
 
-		if(verify) {
-			ret = clEnqueueReadBuffer(queue, output_mem, CL_TRUE, 0, output_sz, output, 0, NULL, NULL);
-			CHECK_RC(ret, "clEnqueueReadBuffer()")
-			if(verify && !verify_kernel(input, output, golden, input_sz, output_sz, kid)) {
-				printf("Verification failed\n");
-				exit(-1);
-			}
+		/**
+		 *	Read output buffer, and verify result if specified
+		 */
+		//if(verify) {
+		ret = clEnqueueReadBuffer(queue, output_mem, CL_TRUE, 0, output_sz, output, 0, NULL, NULL);
+		CHECK_RC(ret, "clEnqueueReadBuffer()")
+		//}
+		if(verify && !verify_kernel(input, output, c0, golden, input_sz, output_sz, kid)) {
+			printf("Verification failed\n");
+			exit(-1);
+		}
 			
 
-		}		
+				
 	}
 	//return total_time / (iter - 1);
 	//printf("Average time: %lu\n", total_time / (iter-1));
@@ -219,24 +250,30 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 
 }
 
-int verify_kernel(T *input, T *output, T *golden, size_t input_sz, size_t output_sz, kernel_t kid) {
+int verify_kernel(T *input, T *output, T *c0, T *golden, size_t input_sz, size_t output_sz, kernel_t kid) {
 	int i, j;
 	for(i = 0; i < GSZ; i++) {
 		golden[i] = 0;
 	}
 
 	switch(kid) {
-	case global_read_linear:
+	case read_linear:
 		for(i = 0; i < GSZ; i++)
 			for(j = 0; j <= EXTRA; j++)
 				golden[i] += input[i+j];
 		break;
 
-	case global_read_single:
+	case read_single:
 		for(i = 0; i < GSZ; i++)
 			for(j = 0; j <= EXTRA; j++)
 				golden[i] += input[j];
 		break;
+
+	case write_linear:
+		for(i = 0; i < GSZ; i++)
+			golden[i] = *c0;
+		break;
+
 	}
 
 	int error = 0;
@@ -256,20 +293,20 @@ int verify_kernel(T *input, T *output, T *golden, size_t input_sz, size_t output
 
 kernel_t to_kernel_id(char *kernel_name) {
 
-	if(strcmp(kernel_name, "global_read_linear") == 0)
-		return global_read_linear;
-	else if(strcmp(kernel_name, "global_read_linear_uncached") == 0)
-		return global_read_linear_uncached;
-	else if(strcmp(kernel_name, "global_read_single") == 0)
-		return global_read_single;
-	else if(strcmp(kernel_name, "global_write_linear") == 0)
-		return global_write_linear;
-	else if(strcmp(kernel_name, "global_read_random") == 0)
-		return global_read_random;
-	else if(strcmp(kernel_name, "global_read_random1") == 0)
-		return global_read_random1;
-	else if(strcmp(kernel_name, "global_read_uncoalescing") == 0)
-		return global_read_uncoalescing;
+	if(strcmp(kernel_name, "read_linear") == 0)
+		return read_linear;
+	else if(strcmp(kernel_name, "read_linear_uncached") == 0)
+		return read_linear_uncached;
+	else if(strcmp(kernel_name, "read_single") == 0)
+		return read_single;
+	else if(strcmp(kernel_name, "write_linear") == 0)
+		return write_linear;
+	else if(strcmp(kernel_name, "read_random") == 0)
+		return read_random;
+	else if(strcmp(kernel_name, "read_random1") == 0)
+		return read_random1;
+	else if(strcmp(kernel_name, "read_uncoalescing") == 0)
+		return read_uncoalescing;
 	else {
 		printf("Unknown kernel name: %s\n", kernel_name);
 		exit(-1);

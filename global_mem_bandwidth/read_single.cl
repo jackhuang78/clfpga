@@ -2,11 +2,11 @@
 #define NUM_READS 32
 #define DATATYPE float
 
-__kernel void global_read_linear(__global DATATYPE *input,__global DATATYPE *output)
+__kernel void read_single(__global DATATYPE *input,__global DATATYPE *output)
 {
 DATATYPE val = (DATATYPE)(0.0f);
 uint gid = get_global_id(0);
-uint index = gid;
+uint index = 0;
 val = val + input[index + 0];
 val = val + input[index + 1];
 val = val + input[index + 2];
@@ -40,4 +40,5 @@ val = val + input[index + 29];
 val = val + input[index + 30];
 val = val + input[index + 31];
 output[gid] = val;
+
 }

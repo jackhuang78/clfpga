@@ -8,7 +8,7 @@
 IDIR = .
 
 # Executables
-_EXES = benchmark
+_EXES = global_mem_bandwidth
 EXES = $(patsubst %,$(ODIR)/%,$(_EXES))
 
 CC=gcc
@@ -39,6 +39,7 @@ $(ODIR)/%.o: %.c makefile makefile.sub
 .PHONY: clean
 clean:
 	rm -rf $(ODIR)
+	rm -f *~ */*~
 
 
 

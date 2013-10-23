@@ -14,7 +14,7 @@
 
 #define T float
 #define LSZ 256
-#define GSZ (1024 * 4 *  LSZ)
+#define GSZ (1024 * 256 *  LSZ)
 #define EXTRA 31
 #define OFFSET 4096
 
@@ -92,17 +92,27 @@ int main(int argc, char **argv) {
 	printf("Run kernels\n");
 	double bw;
 
+#ifndef ALTERA
 	bw = run_kernel(devices[sel], "global_mem_bandwidth/read_linear.cl", "read_linear", 
 					input, output, golden, input_sz, output_sz, iter, verify);
-	printf("\tread_linear:\t%f MB/s\n", bw/1024/1024);
-
+	printf("\tread_linear:\t%7.3f GB/s\n", bw/1024/1024/1024);
 	bw = run_kernel(devices[sel], "global_mem_bandwidth/read_single.cl", "read_single", 
 					input, output, golden, input_sz, output_sz, iter, verify);
-	printf("\tread_single:\t%f MB/s\n", bw/1024/1024);
-
+	printf("\tread_single:\t%7.3f GB/s\n", bw/1024/1024/1024);
 	bw = run_kernel(devices[sel], "global_mem_bandwidth/write_linear.cl", "write_linear", 
 					input, output, golden, input_sz, output_sz, iter, verify);
-	printf("\twrite_linear:\t%f MB/s\n", bw/1024/1024);
+	printf("\twrite_linear:\t%7.3f GB/s\n", bw/1024/1024/1024);
+#else
+	bw = run_kernel(devices[sel], "global_mem_bandwidth/read_linear.aocx", "read_linear", 
+					input, output, golden, input_sz, output_sz, iter, verify);
+	printf("\tread_linear:\t%7.3f GB/s\n", bw/1024/1024/1024);
+	bw = run_kernel(devices[sel], "global_mem_bandwidth/read_single.aocx", "read_single", 
+					input, output, golden, input_sz, output_sz, iter, verify);
+	printf("\tread_single:\t%7.3f GB/s\n", bw/1024/1024/1024);
+	bw = run_kernel(devices[sel], "global_mem_bandwidth/write_linear.aocx", "write_linear", 
+					input, output, golden, input_sz, output_sz, iter, verify);
+	printf("\twrite_linear:\t%7.3f GB/s\n", bw/1024/1024/1024);
+#endif	
 	
 	free(input);
 	free(output);
@@ -138,12 +148,24 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 	 *	Initialize device memory buffers
 	 */
 	cl_mem input_mem, output_mem, const_mem;
-	input_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, input_sz, NULL, &ret);
-	CHECK_RC(ret, "clCreateBuffer(input_mem)")
-	output_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, output_sz, NULL, &ret);
-	CHECK_RC(ret, "clCreateBuffer(output_mem)")
-	const_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(T), NULL, &ret);
-	CHECK_RC(ret, "clCreateBuffer(const_mem)")
+
+	switch(kid) {
+	case read_linear:
+	case read_single:
+		input_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, input_sz, NULL, &ret);
+		CHECK_RC(ret, "clCreateBuffer(input_mem)")
+		output_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, output_sz, NULL, &ret);
+		CHECK_RC(ret, "clCreateBuffer(output_mem)")
+		break;
+	case write_linear:
+		const_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(T), NULL, &ret);
+		CHECK_RC(ret, "clCreateBuffer(const_mem)")
+		output_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_WRITE_ONLY, output_sz, NULL, &ret);
+		CHECK_RC(ret, "clCreateBuffer(output_mem)")
+		break;
+
+
+	}
 
 
 
@@ -165,6 +187,7 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 		T c0[1];
 		c0[0] = 123;
 		
+		//if(verify) {
 		switch(kid) {
 		case read_linear:
 		case read_single:
@@ -177,6 +200,8 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 			CHECK_RC(ret, "clEnqueueWriteBuffer(const_mem)")				
 			break;
 		}
+		//clFinish(queue);
+		//}
 
 		//printf("finsh enqueue write\n");
 
@@ -199,6 +224,7 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 			CHECK_RC(ret, "clSetKernelArg(output)")
 			break;
 		}
+		//clFinish(queue);
 
 
 		//sleep(1);
@@ -210,9 +236,9 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 		size_t gsz = GSZ, lsz = LSZ;
 		cl_ulong queued, submit, start, end;
 
-		clFinish(queue);
 		ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &gsz, &lsz, 0, NULL, &event);
 		CHECK_RC(ret, "clEnqueueNDRangeKernel()")
+		clFinish(queue);
 		ret = clWaitForEvents(1, &event);
 		CHECK_RC(ret, "clWaitForEvents()");
 		ret = oclGetProfilingInfo(&event, &queued, &submit, &start, &end);
@@ -224,9 +250,11 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 		/**
 		 *	Read output buffer, and verify result if specified
 		 */
+		//printf("enqueueReadBuffer\n");
 		//if(verify) {
 		ret = clEnqueueReadBuffer(queue, output_mem, CL_TRUE, 0, output_sz, output, 0, NULL, NULL);
 		CHECK_RC(ret, "clEnqueueReadBuffer()")
+		//clFinish(queue);
 		//}
 		if(verify && !verify_kernel(input, output, c0, golden, input_sz, output_sz, kid)) {
 			printf("Verification failed\n");
@@ -238,6 +266,19 @@ double run_kernel(cl_device_id device, char *kernel_file, char *kernel_name,
 	}
 	//return total_time / (iter - 1);
 	//printf("Average time: %lu\n", total_time / (iter-1));
+
+	/**
+	 * Release Resource
+	 */
+	/*
+	ret = clReleaseMemObject(input_mem);
+	CHECK_RC(ret, "clReleaseMemObject(input_mem)")
+	ret = clReleaseMemObject(output_mem);
+	CHECK_RC(ret, "clReleaseMemObject(output_mem)")
+	ret = clReleaseMemObject(const_mem);
+	CHECK_RC(ret, "clReleaseMemObject(const_mem)")*/
+	
+
 
 	/**
 	 *	Calculate bandwidth

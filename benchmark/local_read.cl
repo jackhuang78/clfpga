@@ -31,7 +31,7 @@ void local_read(
 	shared[tid + 13] = input[tid + 13];
 	shared[tid + 14] = input[tid + 14];
 	shared[tid + 15] = input[tid + 15];
-	//barrier(CLK_LOCAL_MEM_FENCE);
+	barrier(CLK_LOCAL_MEM_FENCE);
 
 	// traverse local memory
 	for(i = 0; i < iterations; i++) {

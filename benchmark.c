@@ -99,8 +99,13 @@ void run_global_read(void) {
 	cl_kernel kernel;
 	cl_build_status status;
 	char *log;
+#ifndef ALTERA
 	ret = oclKernelSetup(device, "benchmark/global_read.cl", "global_read", 
 		&context, &queue, &kernel, &status, &log);
+#else
+	ret = oclKernelSetup(device, "benchmark/global_read.aocx", "global_read", 
+		&context, &queue, &kernel, &status, &log);
+#endif
 	CHECK_RC(ret, "oclKernelSetup()")
 	CHECK_BS(status, "oclKernelSetup()", log)
 
@@ -112,8 +117,14 @@ void run_global_read(void) {
 	size_t global_sz = local_sz * workgroups;
 	size_t input_sz = 1 << 30;
 	size_t output_sz = global_sz * sizeof(unsigned int);
-	unsigned int *input = malloc(input_sz);
-	unsigned int *output = malloc(output_sz);
+	unsigned int *input, *output;
+#ifndef ALTERA
+	input = malloc(input_sz);
+	output = malloc(output_sz);
+#else
+	posix_memalign ((void **)&input, AOCL_ALIGNMENT, input_sz);
+	posix_memalign ((void **)&output, AOCL_ALIGNMENT, output_sz);
+#endif
 	unsigned int input_elem = input_sz / sizeof(unsigned int);
 	for(i = 0; i < input_elem; i++) {
 		input[i] = (i + 1) % input_elem;
@@ -165,8 +176,8 @@ void run_global_read(void) {
 	double seconds = total_time / (REPEAT - 1);
 	double bytes = global_sz * iter * 16 * sizeof(unsigned int);
 	printf("Time:\t\t%f s\n", seconds);
-	printf("Data:\t\t%f MB\n", bytes / 1024 / 1024);
-	printf("Bandwidth:\t%f MB/s\n", bytes/1024/1024/seconds);
+	printf("Data:\t\t%f GB\n", bytes / 1024 / 1024/ 1024);
+	printf("Bandwidth:\t%f GB/s\n", bytes/1024/1024/ 1024/seconds);
 
 
 
@@ -188,8 +199,13 @@ void run_local_read(void) {
 	cl_kernel kernel;
 	cl_build_status status;
 	char *log;
+#ifndef ALTERA
 	ret = oclKernelSetup(device, "benchmark/local_read.cl", "local_read", 
 		&context, &queue, &kernel, &status, &log);
+#else
+	ret = oclKernelSetup(device, "benchmark/local_read.aocx", "local_read", 
+		&context, &queue, &kernel, &status, &log);
+#endif
 	CHECK_RC(ret, "oclKernelSetup()")
 	CHECK_BS(status, "oclKernelSetup()", log)
 
@@ -201,8 +217,14 @@ void run_local_read(void) {
 	size_t global_sz = local_sz * workgroups;
 	size_t input_sz = 1 << 14;
 	size_t output_sz = global_sz * sizeof(unsigned int);
-	unsigned int *input = malloc(input_sz);
-	unsigned int *output = malloc(output_sz);
+	unsigned int *input, *output;
+#ifndef ALTERA
+	input = malloc(input_sz);
+	output = malloc(output_sz);
+#else
+	posix_memalign ((void **)&input, AOCL_ALIGNMENT, input_sz);
+	posix_memalign ((void **)&output, AOCL_ALIGNMENT, output_sz);
+#endif
 	unsigned int input_elem = input_sz / sizeof(unsigned int);
 	for(i = 0; i < input_elem; i++) {
 		input[i] = (i + 1) % input_elem;
@@ -256,8 +278,8 @@ void run_local_read(void) {
 	double seconds = total_time / (REPEAT - 1);
 	double bytes = global_sz * iter * 16 * sizeof(unsigned int);
 	printf("Time:\t\t%f s\n", seconds);
-	printf("Data:\t\t%f MB\n", bytes / 1024 / 1024);
-	printf("Bandwidth:\t%f MB/s\n", bytes/1024/1024/seconds);
+	printf("Data:\t\t%f GB\n", bytes / 1024 / 1024 / 1024);
+	printf("Bandwidth:\t%f GB/s\n", bytes/1024/1024/ 1024/seconds);
 
 
 
@@ -267,8 +289,105 @@ void run_local_read(void) {
 }
 
 void run_add(void) {
+
+	int i;
+	cl_int ret;
 	printf("Run kernel for add\n");
 
+	/*
+		Build OpenCL kernel
+	*/
+	cl_context context;
+	cl_command_queue queue;
+	cl_kernel kernel;
+	cl_build_status status;
+	char *log;
+#ifndef ALTERA
+	ret = oclKernelSetup(device, "benchmark/add.cl", "add", 
+		&context, &queue, &kernel, &status, &log);
+#else
+	ret = oclKernelSetup(device, "benchmark/add.aocx", "add", 
+		&context, &queue, &kernel, &status, &log);
+#endif
+	CHECK_RC(ret, "oclKernelSetup()")
+	CHECK_BS(status, "oclKernelSetup()", log)
+
+	/*
+		Initialize Memory
+	*/
+	int vect = 16;
+	size_t local_sz = 1024;
+	size_t workgroups = 1024;
+	size_t global_sz = local_sz * workgroups;
+	size_t input_sz = vect * sizeof(float);
+	size_t output_sz = global_sz * vect * sizeof(float);
+	unsigned int *input, *output;
+#ifndef ALTERA
+	input = malloc(input_sz);
+	output = malloc(output_sz);
+#else
+	posix_memalign ((void **)&input, AOCL_ALIGNMENT, input_sz);
+	posix_memalign ((void **)&output, AOCL_ALIGNMENT, output_sz);
+#endif
+	unsigned int input_elem = input_sz / sizeof(float);
+	for(i = 0; i < input_elem; i++) {
+		input[i] = (float)i;
+	}
+	printf("\tworkgroups:\t%lu\n", workgroups);
+	printf("\tlocal_sz:\t%lu\n", local_sz);
+	printf("\tglobal_sz:\t%lu\n", global_sz);
+	printf("\tinput_sz:\t%lu\n", input_sz);
+	printf("\toutput_sz:\t%lu\n", output_sz);
+	cl_mem input_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, input_sz, NULL, &ret);
+	CHECK_RC(ret, "clCreateBuffer(input_mem)")
+	cl_mem output_mem = clCreateBuffer(context, CL_MEM_BANK_1_ALTERA | CL_MEM_READ_ONLY, output_sz, NULL, &ret);
+	CHECK_RC(ret, "clCreateBuffer(output_mem)")
+
+	unsigned int iter = (kernels == ADD) ? iterations : 10;
+	printf("\titerations:\t%d\n", iterations);
+
+	double total_time = 0.0;
+	for(i = 0; i < REPEAT; i++) {
+		printf(".");
+		fflush(stdout);
+
+		ret = clEnqueueWriteBuffer(queue, input_mem, CL_TRUE, 0, input_sz, input, 0, NULL, NULL);
+		CHECK_RC(ret, "clEnqueueWriteBuffer(input_mem)")
+
+		ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&input_mem);
+		CHECK_RC(ret, "clSetKernelArg(input)")
+		ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&output_mem);
+		CHECK_RC(ret, "clSetKernelArg(output)")
+		ret = clSetKernelArg(kernel, 2, sizeof(unsigned int), (void *)&iter);
+		CHECK_RC(ret, "clSetKernelArg(iterations)")
+
+		cl_event event;
+		cl_ulong queued, submit, start, end;
+		ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_sz, &local_sz, 0, NULL, &event);
+		CHECK_RC(ret, "clEnqueueNDRangeKernel()")
+		clFinish(queue);
+		ret = clWaitForEvents(1, &event);
+		CHECK_RC(ret, "clWaitForEvents()");
+		ret = oclGetProfilingInfo(&event, &queued, &submit, &start, &end);
+		CHECK_RC(ret, "oclGetProfilingInfo()")
+
+		if(i != 0) 
+			total_time += ((double)(end - start)) * 1e-9;
+
+	}
+	printf("\n");
+
+	double seconds = total_time / (REPEAT - 1);
+	double operations = global_sz * iter * 16 * vect * sizeof(float);
+	printf("Time:\t\t%f s\n", seconds);
+	printf("Operations:\t%f G\n", operations/1024/1024/1024);
+	printf("Bandwidth:\t%f G/s\n", operations/1024/1024/1024/seconds);
+
+
+
+
+	free(input);
+	free(output);
 
 }
 

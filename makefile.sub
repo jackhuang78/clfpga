@@ -8,7 +8,7 @@
 IDIR = .
 
 # Executables
-_EXES = global_mem_bandwidth local_mem_bandwidth benchmark
+_EXES = global_mem_bandwidth local_mem_bandwidth benchmark reduce
 EXES = $(patsubst %,$(ODIR)/%,$(_EXES))
 
 CC=gcc
